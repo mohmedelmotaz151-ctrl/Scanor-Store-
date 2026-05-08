@@ -7,6 +7,8 @@
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string" },
+        "username": { "type": "string" },
+        "balance": { "type": "number", "description": "Current wallet balance" },
         "phoneNumber": { "type": "string" },
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
@@ -14,6 +16,32 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid"]
+    },
+    "WalletRequest": {
+      "title": "Wallet Request",
+      "description": "Requests to charge the user's wallet",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "bank": { "type": "string", "enum": ["bok", "rajhi"] },
+        "receiptUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Activity": {
+      "title": "Account Activity",
+      "description": "History of transactions and status changes",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["charge", "purchase", "refund"] },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     },
     "Order": {
       "title": "Order",
@@ -47,6 +75,14 @@
     "orders/{orderId}": {
       "schema": "Order",
       "description": "Orders made by users"
+    },
+    "wallet_requests/{requestId}": {
+      "schema": "WalletRequest",
+      "description": "User requests to charge wallet"
+    },
+    "activities/{activityId}": {
+      "schema": "Activity",
+      "description": "User account activity log"
     }
   }
 }

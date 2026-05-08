@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Zap, ShieldCheck, Trophy, ArrowRight, X, Download, Gamepad2, Search, CheckCircle2, AlertCircle, Loader2, Gem } from "lucide-react";
 import { useCurrency } from "../context/CurrencyContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { addDoc, collection, serverTimestamp, updateDoc, doc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
@@ -25,6 +26,7 @@ interface UCPackage {
 
 export default function Home() {
   const { user } = useAuth();
+  const { language, t, dir } = useLanguage();
   const navigate = useNavigate();
   const { currency, setCurrency, formatPrice, getSymbol } = useCurrency();
   const [packages, setPackages] = useState<UCPackage[]>([]);
@@ -124,8 +126,16 @@ export default function Home() {
         handleFirestoreError(e, OperationType.CREATE, "orders");
       }
 
-      const text = encodeURIComponent(`طلب شحن جديد (دفع يدوي)\nرقم الطلب: ${docRef?.id}\nاللاعب: ${orderForm.playerId}\nالباقة: ${selectedPackage?.amount} UC\nالمبلغ: ${currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : selectedPackage?.price_sar.toFixed(2)} ${getSymbol()}\nالوسيلة: ${orderForm.paymentMethod}`);
-      window.open(`https://wa.me/966552232752?text=${text}`, '_blank');
+      const text = encodeURIComponent(
+        `${t('wa_msg_title')}\n` +
+        `${t('wa_msg_order_id')}: ${docRef?.id}\n` +
+        `${t('wa_msg_player')}: ${orderForm.playerId}\n` +
+        `${t('wa_msg_package')}: ${selectedPackage?.amount} UC\n` +
+        `${t('wa_msg_amount')}: ${currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : selectedPackage?.price_sar.toFixed(2)} ${getSymbol()}\n` +
+        `${t('wa_msg_method')}: ${orderForm.paymentMethod}\n` +
+        `${t('wa_msg_receipt')}: ${(orderData as any).receiptUrl}`
+      );
+      window.open(`https://api.whatsapp.com/send?phone=966552232752&text=${text}`, '_blank');
       setSuccessOrder({ id: docRef?.id, ...orderData });
     } catch (err) {
       console.error(err);
@@ -170,35 +180,34 @@ export default function Home() {
   };
 
   return (
-    <div className="pb-20">
+    <div className="pb-20" dir={dir}>
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-20 pb-32">
         <div className="absolute inset-0 bg-gradient-to-b from-amber-500/10 via-transparent to-transparent pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-6 relative text-right" dir="rtl">
-          <div className="text-center md:text-right max-w-3xl md:mr-auto md:ml-0">
+        <div className={`max-w-7xl mx-auto px-6 relative text-right ${language === 'ar' ? 'text-right' : 'text-left'}`}>
+          <div className={`text-center max-w-3xl ${language === 'ar' ? 'md:text-right md:mr-auto md:ml-0' : 'md:text-left md:ml-auto md:mr-0'}`}>
 
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold uppercase tracking-widest mb-6">
               <Zap className="w-3 h-3 fill-current" />
-              شحن فوري وتلقائي
+              {t('hero_badge')}
             </div>
             <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-8 font-sans translate-no" translate="no">
-              سكانور <br />
+              {language === 'ar' ? 'سكانور' : 'Scanor'} <br />
               <span className="text-amber-500">STORE.</span>
             </h1>
             <p className="text-lg text-neutral-400 mb-10 leading-relaxed font-medium">
-              المتجر الأسرع لشحن شدات ببجي موبايل. 
-              أسعارنا تعتمد على السعر الرسمي مضافاً إليه 2% فقط كأرباح شخصية لضمان أقل سعر في السوق.
+              {t('hero_desc')}
             </p>
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+            <div className={`flex flex-wrap items-center justify-center gap-4 ${language === 'ar' ? 'md:justify-start' : 'md:justify-start'}`}>
               <a href="#packages" className="bg-amber-500 text-black px-8 py-4 rounded-full font-bold hover:bg-amber-400 transition-colors flex items-center gap-2 group">
-                اشحن الآن
-                <ArrowRight className="w-5 h-5 group-hover:-translate-x-1 transition-transform rotate-180" />
+                {t('charge_now')}
+                <ArrowRight className={`w-5 h-5 group-hover:-translate-x-1 transition-transform ${language === 'ar' ? 'rotate-180' : ''}`} />
               </a>
               <button 
                 onClick={() => navigate('/track')}
                 className="bg-neutral-900 border border-neutral-800 px-8 py-4 rounded-full font-bold hover:bg-neutral-800 transition-colors"
               >
-                تتبع طلبك
+                {t('track_order')}
               </button>
             </div>
           </div>
@@ -206,18 +215,18 @@ export default function Home() {
           <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6">
             <FeatureCard 
               icon={<Zap className="w-6 h-6 text-amber-500" />}
-              title="شحن تلقائي"
-              description="يتم شحن حسابك مباشرة بعد الدفع الناجح دون انتظار."
+              title={t('feat_auto_title')}
+              description={t('feat_auto_desc')}
             />
             <FeatureCard 
               icon={<ShieldCheck className="w-6 h-6 text-amber-500" />}
-              title="دفع آمن"
-              description="دعم كامل لمدى، أبل باي، وبطاقات الفيزا والماستر كارد."
+              title={t('feat_safe_title')}
+              description={t('feat_safe_desc')}
             />
             <FeatureCard 
               icon={<Trophy className="w-6 h-6 text-amber-500" />}
-              title="أفضل سعر"
-              description="أقل عمولة في السوق (2% فقط) مقارنة بالمتجر الرسمي."
+              title={t('feat_price_title')}
+              description={t('feat_price_desc')}
             />
           </div>
         </div>
@@ -225,28 +234,28 @@ export default function Home() {
 
       {/* UC Packages */}
       <section className="max-w-7xl mx-auto px-6 py-20" id="packages">
-        <div className="flex flex-col md:flex-row items-center justify-between mb-12 gap-6" dir="rtl">
-          <div>
-            <h2 className="text-3xl font-bold mb-2 uppercase tracking-tight text-right">باقات الشدات المتاحة</h2>
-            <p className="text-neutral-500 text-right">أفضل العروض والأسعار المحدثة دورياً</p>
+        <div className={`flex flex-col md:flex-row items-center justify-between mb-12 gap-6 ${language === 'ar' ? '' : 'flex-row-reverse'}`}>
+          <div className={language === 'ar' ? 'text-right' : 'text-left'}>
+            <h2 className="text-3xl font-bold mb-2 uppercase tracking-tight">{t('packages_title')}</h2>
+            <p className="text-neutral-500">{t('packages_subtitle')}</p>
           </div>
           
-          <div className="flex flex-col items-end gap-4">
-            <span className="text-xs font-black text-neutral-500 uppercase tracking-[0.2em]">اختيار عملة الدفع</span>
+          <div className={`flex flex-col gap-4 ${language === 'ar' ? 'items-end' : 'items-start'}`}>
+            <span className="text-xs font-black text-neutral-500 uppercase tracking-[0.2em]">{t('select_currency')}</span>
             <div className="grid grid-cols-2 gap-6 w-full md:w-auto" dir="ltr">
               <button 
                 onClick={() => setCurrency('SAR')}
                 className={`flex flex-col items-center gap-4 px-10 py-8 rounded-[2.5rem] border-2 transition-all group ${currency === 'SAR' ? 'bg-amber-500 border-amber-500 text-black shadow-[0_30px_60px_rgba(245,158,11,0.25)]' : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:border-neutral-700'}`}
               >
                 <span className="text-6xl group-hover:scale-110 transition-transform">🇸🇦</span>
-                <span className="text-sm font-black uppercase tracking-tighter">ريال سعودي</span>
+                <span className="text-sm font-black uppercase tracking-tighter">{t('sar')}</span>
               </button>
               <button 
                 onClick={() => setCurrency('SDG')}
                 className={`flex flex-col items-center gap-4 px-10 py-8 rounded-[2.5rem] border-2 transition-all group ${currency === 'SDG' ? 'bg-amber-500 border-amber-500 text-black shadow-[0_30px_60px_rgba(245,158,11,0.25)]' : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:border-neutral-700'}`}
               >
                 <span className="text-6xl group-hover:scale-110 transition-transform">🇸🇩</span>
-                <span className="text-sm font-black uppercase tracking-tighter">جنيه سوداني</span>
+                <span className="text-sm font-black uppercase tracking-tighter">{t('sdg')}</span>
               </button>
             </div>
           </div>
@@ -274,7 +283,7 @@ export default function Home() {
               <h3 className="text-4xl font-black mb-1">
                 <span className="text-amber-500 mr-1">💎</span>
                 {pkg.amount} 
-                <span className="text-xl text-neutral-500 font-normal ml-1">شدة</span>
+                <span className="text-xl text-neutral-500 font-normal ml-1 whitespace-nowrap">{t('uc_unit')}</span>
               </h3>
               <p className="text-neutral-400 mb-6 text-sm">شحن شدات ببجي موبايل (UC)</p>
               <div className="flex items-center justify-between">
@@ -283,7 +292,7 @@ export default function Home() {
                   <span className="text-xs text-neutral-500">{getSymbol()}</span>
                 </span>
                 <span className="bg-neutral-800 text-neutral-300 px-4 py-2 rounded-full text-[10px] font-black group-hover:bg-amber-500 group-hover:text-black transition-colors uppercase">
-                  اشحن الآن
+                  {t('charge_now')}
                 </span>
               </div>
             </motion.div>
@@ -308,12 +317,12 @@ export default function Home() {
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-neutral-900 border border-neutral-800 w-full max-w-xl max-h-[90vh] rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col z-10"
             >
-              <div className="p-8 border-b border-neutral-800 sticky top-0 bg-neutral-900 z-20 flex justify-between items-center shrink-0" dir="rtl">
+              <div className="p-8 border-b border-neutral-800 sticky top-0 bg-neutral-900 z-20 flex justify-between items-center shrink-0" dir={dir}>
                 <div>
                   <h3 className="text-2xl font-bold mb-1">
-                    {checkoutStep === 'details' ? 'بيانات الشحن' : 'إتمام التحويل'}
+                    {checkoutStep === 'details' ? t('checkout_details') : t('checkout_transfer')}
                   </h3>
-                  <p className="text-neutral-500 text-sm">باقة {selectedPackage.amount} شدة</p>
+                  <p className="text-neutral-500 text-sm">باقة {selectedPackage.amount} {t('uc_unit')}</p>
                 </div>
                 <button 
                   onClick={() => {
@@ -326,16 +335,16 @@ export default function Home() {
                 </button>
               </div>
 
-              <div className="overflow-y-auto flex-1 scrollbar-hide px-8 py-6" dir="rtl">
+              <div className="overflow-y-auto flex-1 scrollbar-hide px-8 py-6" dir={dir}>
                 {checkoutStep === 'details' ? (
                   <form id="checkout-form" onSubmit={(e) => { e.preventDefault(); if (orderForm.playerId.length >= 5) setCheckoutStep('review'); else alert('يرجى إدخال معرف اللاعب بشكل صحيح'); }} className="space-y-6 pb-2">
                     <div className="relative">
-                      <label className="block text-xs font-black uppercase tracking-[0.2em] text-neutral-500 mb-3 px-2">معرف اللاعب (Player ID)</label>
+                      <label className="block text-xs font-black uppercase tracking-[0.2em] text-neutral-500 mb-3 px-2">{t('player_id')}</label>
                       <div className="relative">
                         <input 
                           type="text" 
                           required
-                          placeholder="مثال: 512345678"
+                          placeholder={t('player_id_placeholder')}
                           className="w-full bg-neutral-950 border border-neutral-800 text-white px-6 py-5 rounded-[1.5rem] focus:ring-2 focus:ring-amber-500 outline-none transition-all font-mono text-lg"
                           value={orderForm.playerId}
                           onChange={(e) => setOrderForm({ ...orderForm, playerId: e.target.value })}
@@ -344,22 +353,22 @@ export default function Home() {
                     </div>
                     <div className="grid grid-cols-1 gap-6">
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">رقم الجوال</label>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">{t('phone')}</label>
                         <input 
                           type="tel" 
                           required
                           placeholder="05xxxxxxx"
-                          className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl px-5 py-5 text-white focus:outline-none focus:border-amber-500 transition-colors text-left font-mono"
+                          className={`w-full bg-neutral-950 border border-neutral-800 rounded-2xl px-5 py-5 text-white focus:outline-none focus:border-amber-500 transition-colors font-mono ${language === 'ar' ? 'text-left' : 'text-left'}`}
                           value={orderForm.phone}
                           onChange={(e) => setOrderForm({ ...orderForm, phone: e.target.value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">البريد الإلكتروني (اختياري)</label>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">{t('email_opt')}</label>
                         <input 
                           type="email" 
                           placeholder="address@email.com"
-                          className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl px-5 py-5 text-white focus:outline-none focus:border-amber-500 transition-colors text-left"
+                          className={`w-full bg-neutral-950 border border-neutral-800 rounded-2xl px-5 py-5 text-white focus:outline-none focus:border-amber-500 transition-colors ${language === 'ar' ? 'text-left' : 'text-left'}`}
                           value={orderForm.email}
                           onChange={(e) => setOrderForm({ ...orderForm, email: e.target.value })}
                         />
@@ -369,13 +378,13 @@ export default function Home() {
                 ) : (
                   <div className="space-y-6 pb-4">
                     <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] text-center">
-                      <p className="text-amber-500 font-black text-lg mb-1">يرجي تحويل قيمة اليوسي الي رقم الحساب بالاسفل</p>
-                      <p className="text-neutral-400 text-xs">يرجى التأكد من تحويل المبلغ المطلوب بدقة</p>
+                      <p className="text-amber-500 font-black text-lg mb-1">{t('transfer_msg')}</p>
+                      <p className="text-neutral-400 text-xs">{t('transfer_verify')}</p>
                     </div>
 
                     <div className="space-y-4">
                       <div className="flex justify-between items-center px-4">
-                        <span className="text-neutral-500 font-bold text-xs uppercase tracking-widest">إجمالي المبلغ</span>
+                        <span className="text-neutral-500 font-bold text-xs uppercase tracking-widest">{t('total_amount')}</span>
                         <span className="text-2xl font-black text-white">
                           {currency === 'SDG' ? selectedPackage.price_sdg.toLocaleString() : selectedPackage.price_sar.toFixed(2)} {getSymbol()}
                         </span>
@@ -383,13 +392,13 @@ export default function Home() {
 
                       <div className="bg-neutral-950 border border-neutral-800 p-6 rounded-[2rem] space-y-4">
                         <div className="flex flex-col gap-3">
-                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">وسيلة الدفع المتوفرة</label>
-                          <div className="flex items-center gap-3 p-3 bg-neutral-900 rounded-2xl border border-neutral-800">
-                            <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center font-bold text-black">
+                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">{t('payment_method')}</label>
+                          <div className={`flex items-center gap-3 p-3 bg-neutral-900 rounded-2xl border border-neutral-800 ${language === 'ar' ? 'flex-row' : 'flex-row-reverse'}`}>
+                            <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center font-bold text-black shrink-0">
                               {currency === 'SDG' ? 'BOK' : 'SA'}
                             </div>
-                            <div className="text-right">
-                              <p className="text-sm font-bold">{currency === 'SDG' ? 'بنك الخرطوم' : 'مصرف الراجحي'}</p>
+                            <div className={language === 'ar' ? 'text-right' : 'text-left'}>
+                              <p className="text-sm font-bold">{currency === 'SDG' ? t('bok') : t('rajhi')}</p>
                               <p className="text-[10px] text-neutral-500 uppercase font-black">Transfer Details</p>
                             </div>
                           </div>
@@ -399,18 +408,18 @@ export default function Home() {
                           {currency === 'SDG' ? (
                             <>
                               <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
-                                <p className="text-xs text-neutral-500 mb-1">رقم الحساب</p>
+                                <p className="text-xs text-neutral-500 mb-1">{t('acc_num')}</p>
                                 <p className="text-lg font-mono font-black text-amber-500">9800579</p>
                               </div>
                               <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
-                                <p className="text-xs text-neutral-500 mb-1">اسم المستفيد</p>
+                                <p className="text-xs text-neutral-500 mb-1">{t('beneficiary')}</p>
                                 <p className="font-bold text-white">محمد المعتز</p>
                               </div>
                             </>
                           ) : (
                             <>
                               <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
-                                <p className="text-xs text-neutral-500 mb-1">رقم الحساب</p>
+                                <p className="text-xs text-neutral-500 mb-1">{t('acc_num')}</p>
                                 <p className="text-sm font-mono font-black text-amber-500 break-all">644000010006087618978</p>
                               </div>
                               <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
@@ -418,7 +427,7 @@ export default function Home() {
                                 <p className="text-sm font-mono font-black text-white break-all">SA67 8000 0644 6080 1761 8978</p>
                               </div>
                               <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
-                                <p className="text-xs text-neutral-500 mb-1">اسم المستفيد</p>
+                                <p className="text-xs text-neutral-500 mb-1">{t('beneficiary')}</p>
                                 <p className="font-bold text-white">محمد المعتز</p>
                               </div>
                             </>
@@ -426,7 +435,7 @@ export default function Home() {
                         </div>
 
                         <div className="pt-4 border-t border-neutral-900">
-                          <label className="block text-xs font-black uppercase tracking-widest text-neutral-500 mb-4">إرفاق إشعار التحويل</label>
+                          <label className="block text-xs font-black uppercase tracking-widest text-neutral-500 mb-4">{t('attach_receipt')}</label>
                           <div className="relative group cursor-pointer" onClick={() => document.getElementById('receipt-upload')?.click()}>
                             <input 
                               id="receipt-upload"
@@ -439,12 +448,12 @@ export default function Home() {
                                {receipt ? (
                                  <>
                                    <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-2" />
-                                   <span className="text-sm font-bold text-emerald-500">تم اختيار الإيصال ✓</span>
+                                   <span className="text-sm font-bold text-emerald-500">{t('receipt_selected')}</span>
                                  </>
                                ) : (
                                  <>
                                    <Download className="w-10 h-10 text-neutral-700 mb-2 group-hover:text-amber-500 transition-colors" />
-                                   <span className="text-xs font-bold text-neutral-500">اضغط هنا لإرفاق الإشعار</span>
+                                   <span className="text-xs font-bold text-neutral-500">{t('click_attach')}</span>
                                  </>
                                )}
                             </div>
@@ -456,7 +465,7 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="p-8 border-t border-neutral-800 bg-neutral-900 sticky bottom-0 z-20" dir="rtl">
+              <div className="p-8 border-t border-neutral-800 bg-neutral-900 sticky bottom-0 z-20" dir={dir}>
                 {checkoutStep === 'details' ? (
                   <button 
                     form="checkout-form"
@@ -464,7 +473,7 @@ export default function Home() {
                     disabled={loading || orderForm.playerId.length < 5 || orderForm.phone.length < 9}
                     className="w-full bg-amber-500 text-black py-5 rounded-[1.5rem] font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30px_rgba(245,158,11,0.2)] disabled:opacity-50"
                   >
-                    استمرار لإتمام التحويل
+                    {t('continue_transfer')}
                   </button>
                 ) : (
                   <div className="flex flex-col gap-3">
@@ -473,10 +482,10 @@ export default function Home() {
                       disabled={loading || !receipt}
                       className="w-full bg-emerald-500 text-black py-5 rounded-[1.5rem] font-black text-lg hover:bg-emerald-400 transition-all disabled:opacity-50 shadow-[0_10px_30px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2"
                     >
-                      {loading ? "جاري الإرسال..." : (
+                      {loading ? t('sending') : (
                         <>
                           <Zap className="w-5 h-5 fill-current" />
-                          إرسال الإشعار وتأكيد الطلب
+                          {t('send_receipt')}
                         </>
                       )}
                     </button>
@@ -485,7 +494,7 @@ export default function Home() {
                       disabled={loading}
                       className="w-full py-4 text-neutral-500 hover:text-white transition-colors text-sm font-bold"
                     >
-                      تعديل البيانات السابقة
+                      {t('edit_prev')}
                     </button>
                   </div>
                 )}
@@ -504,27 +513,27 @@ export default function Home() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               className="bg-neutral-900 border border-neutral-800 w-full max-w-sm rounded-[3rem] p-10 text-center relative z-10"
+              dir={dir}
             >
               <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(16,185,129,0.3)]">
                 <ShieldCheck className="w-10 h-10 text-black" />
               </div>
-              <h3 className="text-3xl font-black mb-4 uppercase tracking-tight">تم الطلب بنجاح!</h3>
-              <p className="text-neutral-400 mb-8" dir="rtl">
-                تم استلام طلبك رقم <span className="text-white font-mono">{successOrder.id}</span> بنجاح. 
-                سيتم شحن الـ UC إلى المعرف <span className="text-white font-mono">{successOrder.playerId}</span> خلال دقائق.
+              <h3 className="text-3xl font-black mb-4 uppercase tracking-tight">{t('order_success_title')}</h3>
+              <p className="text-neutral-400 mb-8">
+                {t('order_success_msg')} <span className="text-white font-mono">{successOrder.id}</span>. 
               </p>
               <div className="flex flex-col gap-3">
                 <button 
                   onClick={() => navigate(`/track?id=${successOrder.id}`)}
                   className="w-full bg-amber-500 text-black py-4 rounded-2xl font-black hover:bg-amber-400 transition-colors"
                 >
-                  تتبع حالة الطلب الآن
+                  {t('track_order_btn')}
                 </button>
                 <button 
                   onClick={() => setSuccessOrder(null)}
                   className="w-full bg-neutral-800 text-white py-4 rounded-2xl font-bold hover:bg-neutral-700 transition-colors"
                 >
-                  العودة للمتجر
+                  {t('back_to_store')}
                 </button>
               </div>
             </motion.div>

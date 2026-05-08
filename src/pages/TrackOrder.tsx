@@ -5,8 +5,10 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 import { useLocation } from "react-router-dom";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function TrackOrder() {
+  const { language, t, dir } = useLanguage();
   const location = useLocation();
   const [orderId, setOrderId] = useState("");
   const [order, setOrder] = useState<any>(null);
@@ -46,11 +48,11 @@ export default function TrackOrder() {
           createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt || Date.now())
         });
       } else {
-        setError("لم يتم العثور على الطلب. يرجى التأكد من رقم الطلب.");
+        setError(t('order_not_found'));
       }
     } catch (err) {
       console.error(err);
-      setError("حدث خطأ أثناء جلب بيانات الطلب. يرجى المحاولة لاحقاً.");
+      setError(t('order_fetch_error'));
     } finally {
       setLoading(false);
     }
@@ -62,23 +64,28 @@ export default function TrackOrder() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-20">
+    <div className="max-w-4xl mx-auto px-6 py-20" dir={dir}>
       <div className="text-center mb-16">
-        <h1 className="text-5xl font-black mb-6 tracking-tight">تتبع <span className="text-amber-500">طلبك</span></h1>
+        <h1 className="text-5xl font-black mb-6 tracking-tight">
+          {language === 'ar' ? (
+            <>تتبع <span className="text-amber-500">طلبك</span></>
+          ) : (
+            <>Track <span className="text-amber-500">Your Order</span></>
+          )}
+        </h1>
         <p className="text-neutral-400 max-w-lg mx-auto">
-          أدخل رقم الطلب الخاص بك لمتابعة حالة الشحن في الوقت الفعلي. 
-          ستجد رقم الطلب في فاتورتك أو بريدك الإلكتروني.
+          {t('track_order_desc')}
         </p>
       </div>
 
       <div className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-10 md:p-16">
-        <form onSubmit={handleTrack} className="flex flex-col md:flex-row gap-4 mb-12" dir="rtl">
+        <form onSubmit={handleTrack} className={`flex flex-col md:flex-row gap-4 mb-12`} dir={dir}>
           <div className="relative flex-1">
-            <Search className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+            <Search className={`absolute ${language === 'ar' ? 'right-6' : 'left-6'} top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500`} />
             <input 
               type="text" 
-              placeholder="مثال: ORD-123-XYZ"
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-3xl pr-16 pl-6 py-5 text-xl font-mono focus:outline-none focus:border-amber-500 transition-colors uppercase"
+              placeholder={t('order_id_placeholder')}
+              className={`w-full bg-neutral-950 border border-neutral-800 rounded-3xl ${language === 'ar' ? 'pr-16 pl-6' : 'pl-16 pr-6'} py-5 text-xl font-mono focus:outline-none focus:border-amber-500 transition-colors uppercase`}
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
             />
@@ -87,7 +94,7 @@ export default function TrackOrder() {
             disabled={loading}
             className="bg-amber-500 text-black px-10 py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "تتبع الآن"}
+            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : t('track_now_btn')}
           </button>
         </form>
 
@@ -98,7 +105,7 @@ export default function TrackOrder() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4 text-red-500 font-medium"
-              dir="rtl"
+              dir={dir}
             >
               <AlertCircle className="w-6 h-6" />
               {error}
@@ -112,26 +119,26 @@ export default function TrackOrder() {
               exit={{ opacity: 0 }}
               className="space-y-10"
             >
-              <div className="flex flex-wrap items-center justify-between gap-6 pb-10 border-b border-neutral-800" dir="rtl">
-                <div className="text-right">
-                  <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 block mb-2">رقم الطلب</span>
+              <div className={`flex flex-wrap items-center justify-between gap-6 pb-10 border-b border-neutral-800 ${language === 'ar' ? 'flex-row' : 'flex-row-reverse'}`} dir={dir}>
+                <div className={language === 'ar' ? 'text-right' : 'text-left'}>
+                  <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 block mb-2">{t('order_id_label')}</span>
                   <h3 className="text-3xl font-black font-mono tracking-tighter truncate max-w-[250px]">{order.id}</h3>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 block mb-2">الحالة الحالية</span>
-                  <StatusBadge status={order.status} />
+                <div className={language === 'ar' ? 'text-right' : 'text-left'}>
+                  <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 block mb-2">{t('current_status')}</span>
+                  <StatusBadge status={order.status} t={t} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-right" dir="rtl">
+              <div className={`grid grid-cols-1 md:grid-cols-2 gap-12 ${language === 'ar' ? 'text-right' : 'text-left'}`} dir={dir}>
                 <div className="space-y-6">
-                  <DetailItem label="معرف اللاعب" value={order.playerId} isMono />
-                  <DetailItem label="الباقة" value={`${order.amount || order.packageName || 0} UC`} />
+                  <DetailItem label={t('player_id')} value={order.playerId} isMono />
+                  <DetailItem label={t('uc_unit')} value={`${order.amount || order.packageName || 0} ${t('uc_unit')}`} />
                 </div>
                 <div className="space-y-6">
-                  <DetailItem label="وسيلة الدفع" value={(order.paymentMethod || "").toUpperCase()} />
-                  <DetailItem label="الإجمالي" value={`${order.price} ${order.symbol || order.currency}`} />
-                  <DetailItem label="تاريخ الطلب" value={new Date(order.createdAt).toLocaleString()} />
+                  <DetailItem label={t('payment_method_label')} value={(order.paymentMethod || "").toUpperCase()} />
+                  <DetailItem label={t('total_label')} value={`${order.price} ${order.symbol || order.currency}`} />
+                  <DetailItem label={t('order_date')} value={new Date(order.createdAt).toLocaleString()} />
                 </div>
               </div>
 
@@ -143,9 +150,9 @@ export default function TrackOrder() {
                     order.status === 'pending_verification' ? 'w-[15%]' : order.status === 'completed' ? 'w-full' : 'w-[50%]'
                   }`} />
                   
-                  <StepIcon active={true} completed={true} icon={<Clock className="w-5 h-5" />} label="تم الدفع" />
-                  <StepIcon active={order.status !== 'pending_verification'} completed={order.status === 'completed'} icon={<Package className="w-5 h-5" />} label="جاري المعالجة" />
-                  <StepIcon active={order.status === 'completed'} completed={order.status === 'completed'} icon={<CheckCircle2 className="w-5 h-5" />} label="تم التسليم" />
+                  <StepIcon active={true} completed={true} icon={<Clock className="w-5 h-5" />} label={t('step_paid')} />
+                  <StepIcon active={order.status !== 'pending_verification'} completed={order.status === 'completed'} icon={<Package className="w-5 h-5" />} label={t('step_processing')} />
+                  <StepIcon active={order.status === 'completed'} completed={order.status === 'completed'} icon={<CheckCircle2 className="w-5 h-5" />} label={t('step_delivered')} />
                 </div>
               </div>
             </motion.div>
@@ -156,7 +163,7 @@ export default function TrackOrder() {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, t }: { status: string, t: any }) {
   const styles: any = {
     pending_payment: "bg-red-500/10 text-red-500 border-red-500/20",
     pending_verification: "bg-amber-500/10 text-amber-500 border-amber-500/20",
@@ -167,11 +174,11 @@ function StatusBadge({ status }: { status: string }) {
 
   const getLabel = (s: string) => {
     switch(s) {
-      case 'pending_payment': return 'بانتظار الدفع';
-      case 'pending_verification': return 'بانتظار التأكيد';
-      case 'processing': return 'جاري الشحن';
-      case 'completed': return 'مكتمل';
-      case 'failed': return 'فشل';
+      case 'pending_payment': return t('status_pending_payment');
+      case 'pending_verification': return t('status_pending_verification');
+      case 'processing': return t('status_processing');
+      case 'completed': return t('status_completed');
+      case 'failed': return t('status_failed');
       default: return s;
     }
   };

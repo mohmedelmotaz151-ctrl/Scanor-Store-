@@ -13,6 +13,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, googleProvider, appleProvider, db } from "../lib/firebase";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Mail, 
@@ -31,6 +32,7 @@ type Method = "email" | "phone";
 
 export default function Login() {
   const { user: currentUser } = useAuth();
+  const { language, t, dir } = useLanguage();
   const [mode, setMode] = useState<AuthMode>("login");
   const [method, setMethod] = useState<Method>("email");
   const [email, setEmail] = useState("");
@@ -91,11 +93,11 @@ export default function Login() {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await syncUserToFirestore(userCredential.user);
         await sendEmailVerification(userCredential.user);
-        setSuccess("تم إنشاء الحساب بنجاح! يرجى التحقق من بريدك الإلكتروني.");
+        setSuccess(t('auth_success_msg'));
         setMode("login");
       } else {
         await sendPasswordResetEmail(auth, email);
-        setSuccess("تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني.");
+        setSuccess(t('reset_success_msg'));
         setMode("login");
       }
     } catch (err: any) {
@@ -115,7 +117,7 @@ export default function Login() {
         const formattedPhone = phoneNumber.startsWith("+") ? phoneNumber : `+${phoneNumber}`;
         const result = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
         setConfirmationResult(result);
-        setSuccess("تم إرسال رمز التحقق.");
+        setSuccess(t('otp_success_msg'));
       } else {
         const { user } = await confirmationResult.confirm(verificationCode);
         await syncUserToFirestore(user);
@@ -144,20 +146,20 @@ export default function Login() {
 
   const getErrorMessage = (code: string) => {
     switch (code) {
-      case "auth/user-not-found": return "الحساب غير موجود.";
-      case "auth/wrong-password": return "كلمة المرور غير صحيحة.";
-      case "auth/email-already-in-use": return "البريد الإلكتروني مستخدم بالفعل.";
-      case "auth/weak-password": return "كلمة المرور ضعيفة جداً.";
-      case "auth/invalid-email": return "بريد إلكتروني غير صالح.";
-      case "auth/invalid-phone-number": return "رقم هاتف غير صالح.";
-      case "auth/too-many-requests": return "محاولات كثيرة جداً. يرجى المحاولة لاحقاً.";
-      case "auth/code-expired": return "انتهت صلاحية الرمز.";
-      default: return "حدث خطأ ما. يرجى المحاولة لاحقاً.";
+      case "auth/user-not-found": return t('auth_error_user_not_found');
+      case "auth/wrong-password": return t('auth_error_wrong_password');
+      case "auth/email-already-in-use": return t('auth_error_email_in_use');
+      case "auth/weak-password": return t('auth_error_weak_password');
+      case "auth/invalid-email": return t('auth_error_invalid_email');
+      case "auth/invalid-phone-number": return t('auth_error_invalid_phone');
+      case "auth/too-many-requests": return t('auth_error_too_many_requests');
+      case "auth/code-expired": return t('auth_error_code_expired');
+      default: return t('auth_error_default');
     }
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center p-6 bg-neutral-950">
+    <div className="min-h-[80vh] flex items-center justify-center p-6 bg-neutral-950" dir={dir}>
       <div className="w-full max-w-md">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -170,10 +172,10 @@ export default function Login() {
 
           <div className="text-center mb-8 relative z-10">
             <h1 className="text-3xl font-black mb-2 tracking-tight">
-              {mode === "login" ? "تسجيل الدخول" : mode === "signup" ? "إنشاء حساب" : "استعادة كلمة المرور"}
+              {mode === "login" ? t('login_title') : mode === "signup" ? t('signup_title') : t('reset_title')}
             </h1>
             <p className="text-neutral-500 text-sm">
-              {mode === "login" ? "مرحباً بك في سكانور ستور" : "انضم إلى مجتمع اللاعبين المتميزين"}
+              {mode === "login" ? t('login_subtitle') : t('signup_subtitle')}
             </p>
           </div>
 
@@ -183,13 +185,13 @@ export default function Login() {
               onClick={() => { setMethod("email"); setError(""); setConfirmationResult(null); }}
               className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${method === "email" ? "bg-amber-500 text-black shadow-lg" : "text-neutral-500 hover:text-white"}`}
             >
-              البريد الإلكتروني
+              {t('email_method')}
             </button>
             <button 
               onClick={() => { setMethod("phone"); setError(""); setConfirmationResult(null); }}
               className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all ${method === "phone" ? "bg-amber-500 text-black shadow-lg" : "text-neutral-500 hover:text-white"}`}
             >
-              رقم الهاتف
+              {t('phone_method')}
             </button>
           </div>
 
@@ -224,15 +226,15 @@ export default function Login() {
           {method === "email" ? (
             <form onSubmit={handleEmailAuth} className="space-y-4 relative z-10">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-neutral-500 px-2 uppercase tracking-widest">البريد الإلكتروني</label>
+                <label className="text-xs font-bold text-neutral-500 px-2 uppercase tracking-widest">{t('email_label')}</label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+                  <Mail className={`absolute ${language === 'ar' ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500`} />
                   <input 
                     type="email" 
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-black/30 border border-neutral-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-amber-500 transition-colors text-white placeholder:text-neutral-700"
+                    className={`w-full bg-black/30 border border-neutral-800 rounded-2xl py-4 ${language === 'ar' ? 'pr-12 pl-4' : 'pl-12 pr-4'} focus:outline-none focus:border-amber-500 transition-colors text-white placeholder:text-neutral-700`}
                     placeholder="example@mail.com"
                   />
                 </div>
@@ -240,26 +242,26 @@ export default function Login() {
 
               {mode !== "reset" && (
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between px-2">
-                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">كلمة المرور</label>
+                  <div className={`flex items-center justify-between px-2 ${language === 'ar' ? 'flex-row' : 'flex-row-reverse'}`}>
+                    <label className="text-xs font-bold text-neutral-500 uppercase tracking-widest">{t('password_label')}</label>
                     {mode === "login" && (
                       <button 
                         type="button"
                         onClick={() => setMode("reset")} 
                         className="text-[10px] text-amber-500 hover:underline"
                       >
-                        نسيت كلمة المرور؟
+                        {t('forgot_password')}
                       </button>
                     )}
                   </div>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+                    <Lock className={`absolute ${language === 'ar' ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500`} />
                     <input 
                       type="password" 
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-black/30 border border-neutral-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-amber-500 transition-colors text-white placeholder:text-neutral-700"
+                      className={`w-full bg-black/30 border border-neutral-800 rounded-2xl py-4 ${language === 'ar' ? 'pr-12 pl-4' : 'pl-12 pr-4'} focus:outline-none focus:border-amber-500 transition-colors text-white placeholder:text-neutral-700`}
                       placeholder="••••••••"
                     />
                   </div>
@@ -273,8 +275,8 @@ export default function Login() {
               >
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                   <>
-                    {mode === "login" ? "دخول" : mode === "signup" ? "إنشاء حساب" : "إرسال رابط الاستعادة"}
-                    <ChevronRight className="w-5 h-5" />
+                    {mode === "login" ? t('login_btn') : mode === "signup" ? t('signup_btn') : t('reset_btn')}
+                    <ChevronRight className={`w-5 h-5 ${language === 'ar' ? 'rotate-180' : ''}`} />
                   </>
                 )}
               </button>
@@ -282,16 +284,16 @@ export default function Login() {
           ) : (
             <form onSubmit={handlePhoneAuth} className="space-y-4 relative z-10">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-neutral-500 px-2 uppercase tracking-widest">رقم الهاتف</label>
+                <label className="text-xs font-bold text-neutral-500 px-2 uppercase tracking-widest">{t('phone_method')}</label>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+                  <Phone className={`absolute ${language === 'ar' ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500`} />
                   <input 
                     type="tel" 
                     required
                     value={phoneNumber}
                     disabled={!!confirmationResult}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full bg-black/30 border border-neutral-800 rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-amber-500 transition-colors text-white placeholder:text-neutral-700 disabled:opacity-50"
+                    className={`w-full bg-black/30 border border-neutral-800 rounded-2xl py-4 ${language === 'ar' ? 'pr-12 pl-4' : 'pl-12 pr-4'} focus:outline-none focus:border-amber-500 transition-colors text-white placeholder:text-neutral-700 disabled:opacity-50`}
                     placeholder="+966 50 000 0000"
                   />
                 </div>
@@ -299,7 +301,7 @@ export default function Login() {
 
               {confirmationResult && (
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-neutral-500 px-2 uppercase tracking-widest">رمز التحقق (OTP)</label>
+                  <label className="text-xs font-bold text-neutral-500 px-2 uppercase tracking-widest">{t('otp_label')}</label>
                   <input 
                     type="text" 
                     required
@@ -319,8 +321,8 @@ export default function Login() {
               >
                 {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                   <>
-                    {!confirmationResult ? "إرسال الرمز" : "تحقق وتأكيد"}
-                    <ChevronRight className="w-5 h-5" />
+                    {!confirmationResult ? t('send_code_btn') : t('verify_btn')}
+                    <ChevronRight className={`w-5 h-5 ${language === 'ar' ? 'rotate-180' : ''}`} />
                   </>
                 )}
               </button>
@@ -328,7 +330,7 @@ export default function Login() {
           )}
 
           <div className="mt-8 pt-8 border-t border-neutral-800/50 space-y-6 relative z-10 text-center">
-            <p className="text-neutral-500 text-xs">أو عبر المنصات الاجتماعية</p>
+            <p className="text-neutral-500 text-xs">{t('social_login')}</p>
             <div className="flex gap-4">
               <button 
                 onClick={() => handleSocialLogin(googleProvider)}
@@ -355,9 +357,9 @@ export default function Login() {
               className="text-sm font-bold text-neutral-400 hover:text-white transition-colors"
             >
               {mode === "login" ? (
-                <>ليس لديك حساب؟ <span className="text-amber-500">إنشاء حساب جديد</span></>
+                <>{t('no_account')} <span className="text-amber-500">{t('create_account')}</span></>
               ) : (
-                <>لديك حساب بالفعل؟ <span className="text-amber-500">تسجيل الدخول</span></>
+                <>{t('have_account')} <span className="text-amber-500">{t('login_link')}</span></>
               )}
             </button>
           </div>

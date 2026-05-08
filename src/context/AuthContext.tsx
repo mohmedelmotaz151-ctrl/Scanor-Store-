@@ -1,13 +1,25 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  User, 
+  User as FirebaseUser, 
   onAuthStateChanged, 
   signOut as firebaseSignOut 
 } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+
+interface UserProfile {
+  uid: string;
+  email: string;
+  username?: string;
+  balance?: number;
+  isAdmin?: boolean;
+  photoURL?: string;
+  displayName?: string;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: FirebaseUser | null;
+  profile: UserProfile | null;
   loading: boolean;
   logout: () => Promise<void>;
 }
@@ -15,16 +27,39 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    let unsubscribeProfile: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      
+      if (firebaseUser) {
+        // Subscribe to user profile in Firestore
+        unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
+          if (docSnap.exists()) {
+            setProfile(docSnap.data() as UserProfile);
+          } else {
+            setProfile(null);
+          }
+        }, (error) => {
+          console.error("Profile sync error:", error);
+        });
+      } else {
+        setProfile(null);
+        if (unsubscribeProfile) unsubscribeProfile();
+      }
+      
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
   }, []);
 
   const logout = async () => {
@@ -32,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );

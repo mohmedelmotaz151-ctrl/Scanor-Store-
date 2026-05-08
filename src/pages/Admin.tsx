@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ShoppingBag, Clock, CheckCircle2, ShieldCheck, RefreshCw, User, Lock, Loader2, ShieldAlert } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { doc, getDoc, collection, query, orderBy, onSnapshot, updateDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, onSnapshot, updateDoc, Timestamp, increment, addDoc, writeBatch, serverTimestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useNavigate } from "react-router-dom";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
@@ -11,9 +11,10 @@ export default function Admin() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<'orders' | 'customers' | 'reports'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'customers' | 'wallet' | 'reports'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [walletRequests, setWalletRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,9 +75,23 @@ export default function Admin() {
       (error) => handleFirestoreError(error, OperationType.LIST, "users")
     );
 
+    // Listen to wallet requests
+    const qWallet = query(collection(db, "wallet_requests"), orderBy("createdAt", "desc"));
+    const unsubWallet = onSnapshot(qWallet,
+      (snapshot) => {
+        setWalletRequests(snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate?.() || new Date()
+        })));
+      },
+      (error) => handleFirestoreError(error, OperationType.LIST, "wallet_requests")
+    );
+
     return () => {
       unsubOrders();
       unsubUsers();
+      unsubWallet();
     };
   }, [isAdmin]);
 
@@ -91,6 +106,34 @@ export default function Admin() {
     } catch (err) {
       console.error("Error updating status:", err);
       alert("فشل في تحديث الحالة");
+    }
+  };
+
+  const handleWalletAction = async (request: any, action: 'approved' | 'rejected') => {
+    try {
+      const batch = writeBatch(db);
+      const requestRef = doc(db, 'wallet_requests', request.id);
+      const userRef = doc(db, 'users', request.userId);
+      const activityRef = doc(collection(db, 'activities'));
+
+      batch.update(requestRef, { status: action, updatedAt: Timestamp.now() });
+
+      if (action === 'approved') {
+        batch.update(userRef, { balance: increment(request.amount) });
+        batch.set(activityRef, {
+          userId: request.userId,
+          type: 'charge',
+          amount: request.amount,
+          description: `شحن محفظة عبر ${request.bank === 'bok' ? 'بنك الخرطوم' : 'الراجحي'}`,
+          status: 'success',
+          createdAt: serverTimestamp()
+        });
+      }
+
+      await batch.commit();
+    } catch (err) {
+      console.error("Wallet action error:", err);
+      alert("فشل في معالجة طلب المحفظة");
     }
   };
 
@@ -159,6 +202,12 @@ export default function Admin() {
             الطلبات
           </button>
           <button 
+            onClick={() => setActiveTab('wallet')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'wallet' ? 'bg-amber-500 text-black' : 'text-neutral-500 hover:text-white'}`}
+          >
+            المحفظة
+          </button>
+          <button 
             onClick={() => setActiveTab('customers')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'customers' ? 'bg-amber-500 text-black' : 'text-neutral-500 hover:text-white'}`}
           >
@@ -183,7 +232,7 @@ export default function Admin() {
       <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
         <div className="p-8 border-b border-neutral-800 bg-neutral-900/50 flex justify-between items-center">
           <h3 className="font-bold text-xl uppercase tracking-tight text-right w-full text-white" dir="rtl">
-            {activeTab === 'orders' ? 'الطلبات الأخيرة' : activeTab === 'customers' ? 'قائمة العملاء' : 'تقارير المبيعات'}
+            {activeTab === 'orders' ? 'الطلبات الأخيرة' : activeTab === 'wallet' ? 'طلبات شحن المحفظة' : activeTab === 'customers' ? 'قائمة العملاء' : 'تقارير المبيعات'}
           </h3>
         </div>
         
@@ -209,7 +258,6 @@ export default function Admin() {
                       <div className="flex flex-col">
                         <span className="font-bold text-neutral-200">{order.playerName}</span>
                         <span className="text-xs text-neutral-500">ID: {order.playerId}</span>
-                        <span className="text-[10px] text-neutral-600">{order.email}</span>
                       </div>
                     </td>
                     <td className="px-8 py-6">
@@ -254,12 +302,71 @@ export default function Admin() {
                 ))}
               </tbody>
             </table>
+          ) : activeTab === 'wallet' ? (
+            <table className="w-full text-left" dir="rtl">
+              <thead>
+                <tr className="bg-neutral-950/50 border-b border-neutral-800">
+                  <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">العميل</th>
+                  <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">المبلغ</th>
+                  <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">البنك</th>
+                  <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">الإيصال</th>
+                  <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">الحالة</th>
+                  <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-left">الإجراءات</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-800">
+                {walletRequests.map((req) => (
+                  <tr key={req.id} className="hover:bg-neutral-800/30 transition-colors text-right">
+                    <td className="px-8 py-6">
+                       <span className="text-xs text-neutral-400 font-mono tracking-tighter block mb-1">UID: {req.userId}</span>
+                       <span className="font-bold text-white">{users.find(u => u.id === req.userId)?.username || users.find(u => u.id === req.userId)?.displayName || 'Unknown User'}</span>
+                    </td>
+                    <td className="px-8 py-6 font-black text-emerald-500">{req.amount.toLocaleString()}</td>
+                    <td className="px-8 py-6">
+                       <span className={`px-2 py-1 rounded text-[10px] font-bold ${req.bank === 'bok' ? 'bg-blue-500/10 text-blue-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                         {req.bank.toUpperCase()}
+                       </span>
+                    </td>
+                    <td className="px-8 py-6">
+                      <a href={req.receiptUrl} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-400 underline">عرض الإيصال</a>
+                    </td>
+                    <td className="px-8 py-6">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                        req.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
+                        req.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                        'bg-amber-500/10 text-amber-500'
+                      }`}>
+                        {req.status}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 text-left">
+                      {req.status === 'pending' && (
+                        <div className="flex items-center gap-2">
+                           <button 
+                            onClick={() => handleWalletAction(req, 'approved')}
+                            className="bg-emerald-500 text-black px-3 py-1 rounded-lg text-xs font-bold hover:bg-emerald-400 trasition-colors"
+                          >
+                            قبول
+                          </button>
+                          <button 
+                            onClick={() => handleWalletAction(req, 'rejected')}
+                            className="bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1 rounded-lg text-xs font-bold hover:bg-red-500 hover:text-white trasition-colors"
+                          >
+                            رفض
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : activeTab === 'customers' ? (
             <table className="w-full text-left" dir="rtl">
               <thead>
                 <tr className="bg-neutral-950/50 border-b border-neutral-800">
                   <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">العميل</th>
-                  <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">معلومات التواصل</th>
+                  <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">الرصيد</th>
                   <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">تاريخ الانضمام</th>
                   <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-left">عدد الطلبات</th>
                 </tr>
@@ -276,12 +383,11 @@ export default function Admin() {
                             {u.displayName?.[0] || u.email?.[0] || 'U'}
                           </div>
                         )}
-                        <span className="font-bold text-white">{u.displayName || "بدون اسم"}</span>
+                        <span className="font-bold text-white">{u.username || u.displayName || u.email?.split('@')[0]}</span>
                       </div>
                     </td>
-                    <td className="px-8 py-6 text-xs">
-                      <div className="text-neutral-300">{u.email}</div>
-                      <div className="text-neutral-500">{u.phoneNumber}</div>
+                    <td className="px-8 py-6 font-black text-amber-500">
+                      {(u.balance || 0).toLocaleString()} <span className="text-[10px] text-neutral-500">ر.س</span>
                     </td>
                     <td className="px-8 py-6 text-xs text-neutral-500">
                       {new Date(u.createdAt?.toDate?.() || u.createdAt).toLocaleDateString()}

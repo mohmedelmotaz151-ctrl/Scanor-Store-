@@ -47,20 +47,45 @@ service cloud.firestore {
       return data.uid is string &&
              data.email is string &&
              data.isAdmin is bool &&
+             (data.balance is number || !data.keys().hasAll(['balance'])) &&
              data.keys().hasAll(['uid', 'email', 'isAdmin']) &&
              data.keys().size() >= 3;
     }
 
     match /users/{userId} {
-      // allow list: if isAdmin(); // Admin can list all users
-      // allow get: if isOwner(userId) || isAdmin();
       allow read: if isOwner(userId) || isAdmin();
-
       allow create: if isSignedIn() && request.auth.uid == userId && (
-        incoming().isAdmin == false // Users cannot make themselves admin
+        incoming().isAdmin == false &&
+        (!incoming().keys().hasAll(['balance']) || incoming().balance == 0)
       );
+      allow update: if (isOwner(userId) && !incoming().diff(existing()).affectedKeys().hasAny(['isAdmin', 'uid', 'createdAt', 'balance'])) || isAdmin();
+    }
 
-      allow update: if (isOwner(userId) && !incoming().diff(existing()).affectedKeys().hasAny(['isAdmin', 'uid', 'createdAt'])) || isAdmin();
+    // ---------------------------------------------------------
+    // WALLET REQUESTS
+    // ---------------------------------------------------------
+    function isValidWalletRequest(data) {
+      return data.userId == request.auth.uid &&
+             data.amount is number && data.amount > 0 &&
+             data.status == 'pending' &&
+             data.bank in ['bok', 'rajhi'];
+    }
+
+    match /wallet_requests/{requestId} {
+      allow read: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isSignedIn() && isValidWalletRequest(incoming());
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------------------------------------------------------
+    // ACTIVITIES
+    // ---------------------------------------------------------
+    match /activities/{activityId} {
+      allow read: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      allow create: if isAdmin(); // Only system/admin can log activities
+      allow update, delete: if false;
     }
 
     // ---------------------------------------------------------
