@@ -31,7 +31,12 @@ export default defineConfig(({mode}) => {
           lang: 'ar',
           dir: 'rtl',
           orientation: 'portrait',
-          categories: ['games', 'shopping'],
+          categories: ['games', 'shopping', 'entertainment'],
+          iarc_rating_id: 'e8464687-f273-424a-931b-7a2e4b3f88f2',
+          related_applications: [],
+          launch_handler: {
+            client_mode: 'focus-existing'
+          },
           icons: [
             {
               src: 'https://cdn-icons-png.flaticon.com/512/8002/8002123.png',
@@ -67,7 +72,7 @@ export default defineConfig(({mode}) => {
               sizes: '1080x1920',
               type: 'image/png',
               form_factor: 'narrow',
-              label: 'Scanor Store Home'
+              label: 'Scanor Store Mobile'
             },
             {
               src: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1920&h=1080&auto=format&fit=crop',
@@ -77,6 +82,29 @@ export default defineConfig(({mode}) => {
               label: 'Scanor Store Desktop'
             }
           ]
+        },
+        registerType: 'autoUpdate',
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-fonts-cache',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            }
+          ]
+        },
+        devOptions: {
+          enabled: true
         }
       })
     ],
