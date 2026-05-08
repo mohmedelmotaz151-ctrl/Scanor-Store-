@@ -181,55 +181,72 @@ export default function Home() {
 
   return (
     <div className="pb-20" dir={dir}>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-20 pb-32">
-        <div className="absolute inset-0 bg-gradient-to-b from-amber-500/10 via-transparent to-transparent pointer-events-none" />
-        <div className={`max-w-7xl mx-auto px-6 relative text-right ${language === 'ar' ? 'text-right' : 'text-left'}`}>
-          <div className={`text-center max-w-3xl ${language === 'ar' ? 'md:text-right md:mr-auto md:ml-0' : 'md:text-left md:ml-auto md:mr-0'}`}>
-
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold uppercase tracking-widest mb-6">
-              <Zap className="w-3 h-3 fill-current" />
-              {t('hero_badge')}
-            </div>
-            <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-8 font-sans translate-no" translate="no">
-              {language === 'ar' ? 'سكانور' : 'Scanor'} <br />
-              <span className="text-amber-500">STORE.</span>
-            </h1>
-            <p className="text-lg text-neutral-400 mb-10 leading-relaxed font-medium">
-              {t('hero_desc')}
-            </p>
-            <div className={`flex flex-wrap items-center justify-center gap-4 ${language === 'ar' ? 'md:justify-start' : 'md:justify-start'}`}>
-              <a href="#packages" className="bg-amber-500 text-black px-8 py-4 rounded-full font-bold hover:bg-amber-400 transition-colors flex items-center gap-2 group">
-                {t('charge_now')}
-                <ArrowRight className={`w-5 h-5 group-hover:-translate-x-1 transition-transform ${language === 'ar' ? 'rotate-180' : ''}`} />
-              </a>
-              <button 
-                onClick={() => navigate('/track')}
-                className="bg-neutral-900 border border-neutral-800 px-8 py-4 rounded-full font-bold hover:bg-neutral-800 transition-colors"
-              >
-                {t('track_order')}
-              </button>
+      {/* Native App Header / Hero */}
+      <section className="relative pt-12 pb-20 px-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-7xl mx-auto"
+        >
+          {/* Welcome Banner Card */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-amber-500 to-amber-700 rounded-[2.5rem] p-8 sm:p-10 shadow-2xl shadow-amber-500/20 group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[80px] rounded-full -mr-20 -mt-20 group-hover:bg-white/20 transition-all duration-700" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 blur-[60px] rounded-full -ml-20 -mb-20" />
+            
+            <div className={`relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8 ${language === 'ar' ? 'text-right' : 'text-left'}`}>
+              <div className="max-w-xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-[10px] sm:text-xs font-black uppercase tracking-widest mb-6 backdrop-blur-md">
+                   <Zap className="w-3 h-3 fill-current animate-pulse" />
+                   {t('hero_badge')}
+                </div>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-black leading-[0.95] tracking-tighter mb-6 uppercase italic">
+                  {language === 'ar' ? 'أسرع شحن' : 'FASTEST TOP-UP'} <br />
+                  <span className="text-white not-italic font-sans">IN THE MIDDLE EAST</span>
+                </h1>
+                <p className="text-black/80 font-bold text-base sm:text-lg mb-8 leading-snug max-w-md">
+                  {t('hero_desc')}
+                </p>
+                <div className={`flex flex-wrap gap-4 ${language === 'ar' ? 'md:justify-start' : 'md:justify-start'}`}>
+                  <a href="#packages" className="h-14 px-8 bg-black text-white rounded-2xl flex items-center justify-center font-black gap-2 hover:scale-105 transition-all shadow-xl shadow-black/20">
+                    <Gamepad2 className="w-5 h-5" />
+                    {t('charge_now')}
+                  </a>
+                </div>
+              </div>
+              
+              <div className="hidden md:block">
+                <div className="w-56 h-56 bg-white/20 backdrop-blur-lg rounded-[3rem] border border-white/30 flex items-center justify-center rotate-12 shadow-2xl">
+                  <Gamepad2 className="w-32 h-32 text-black/40" />
+                </div>
+              </div>
             </div>
           </div>
-
-          <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FeatureCard 
-              icon={<Zap className="w-6 h-6 text-amber-500" />}
-              title={t('feat_auto_title')}
-              description={t('feat_auto_desc')}
-            />
-            <FeatureCard 
-              icon={<ShieldCheck className="w-6 h-6 text-amber-500" />}
-              title={t('feat_safe_title')}
-              description={t('feat_safe_desc')}
-            />
-            <FeatureCard 
-              icon={<Trophy className="w-6 h-6 text-amber-500" />}
-              title={t('feat_price_title')}
-              description={t('feat_price_desc')}
-            />
+          
+          {/* Quick Action Stats */}
+          <div className="grid grid-cols-3 gap-3 sm:gap-6 mt-8">
+            <div className="bg-neutral-900 border border-neutral-800 p-4 sm:p-6 rounded-3xl flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center mb-3">
+                <Zap className="w-6 h-6 text-amber-500" />
+              </div>
+              <span className="text-xs font-black text-neutral-500 uppercase tracking-widest mb-1">{language === 'ar' ? 'السرعة' : 'SPEED'}</span>
+              <span className="text-lg font-black text-white leading-tight">{language === 'ar' ? 'فوري' : 'INSTANT'}</span>
+            </div>
+            <div className="bg-neutral-900 border border-neutral-800 p-4 sm:p-6 rounded-3xl flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-3">
+                <ShieldCheck className="w-6 h-6 text-emerald-500" />
+              </div>
+              <span className="text-xs font-black text-neutral-500 uppercase tracking-widest mb-1">{language === 'ar' ? 'الأمان' : 'SAFETY'}</span>
+              <span className="text-lg font-black text-white leading-tight">{language === 'ar' ? 'مضمون' : '100% SECURE'}</span>
+            </div>
+            <div className="bg-neutral-900 border border-neutral-800 p-4 sm:p-6 rounded-3xl flex flex-col items-center justify-center text-center">
+              <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-3">
+                <Trophy className="w-6 h-6 text-blue-500" />
+              </div>
+              <span className="text-xs font-black text-neutral-500 uppercase tracking-widest mb-1">{language === 'ar' ? 'التقييم' : 'TRUST'}</span>
+              <span className="text-lg font-black text-white leading-tight">4.9/5</span>
+            </div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* UC Packages */}

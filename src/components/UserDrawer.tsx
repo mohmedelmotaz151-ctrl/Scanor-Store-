@@ -11,7 +11,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { 
   collection, query, where, orderBy, limit, 
-  onSnapshot, addDoc, serverTimestamp 
+  onSnapshot, addDoc, serverTimestamp, doc, updateDoc
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -21,7 +21,7 @@ interface UserDrawerProps {
   onClose: () => void;
 }
 
-type View = 'menu' | 'wallet' | 'transactions' | 'orders' | 'cart' | 'charge';
+type View = 'menu' | 'wallet' | 'transactions' | 'orders' | 'cart' | 'charge' | 'profile';
 
 export default function UserDrawer({ isOpen, onClose }: UserDrawerProps) {
   const { user, profile, logout } = useAuth();
@@ -35,6 +35,32 @@ export default function UserDrawer({ isOpen, onClose }: UserDrawerProps) {
   const [chargeBank, setChargeBank] = useState<'bok' | 'rajhi'>('bok');
   const [receipt, setReceipt] = useState<File | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [newUsername, setNewUsername] = useState(profile?.username || '');
+  const [newFullName, setNewFullName] = useState(profile?.displayName || '');
+
+  useEffect(() => {
+    if (profile?.username) setNewUsername(profile.username);
+    if (profile?.displayName) setNewFullName(profile.displayName);
+  }, [profile]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !newUsername) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        username: newUsername,
+        displayName: newFullName,
+        updatedAt: serverTimestamp()
+      });
+      setSuccess(t('username_updated'));
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'users');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!user || !isOpen) return;
@@ -102,6 +128,7 @@ export default function UserDrawer({ isOpen, onClose }: UserDrawerProps) {
   };
 
   const menuItems = [
+    { id: 'profile', icon: UserIcon, label: t('edit_profile'), color: 'text-white' },
     { id: 'wallet', icon: Wallet, label: t('wallet'), color: 'text-amber-500' },
     { id: 'transactions', icon: History, label: t('transactions'), color: 'text-blue-500' },
     { id: 'cart', icon: ShoppingCart, label: t('cart'), color: 'text-emerald-500' },
@@ -161,6 +188,92 @@ export default function UserDrawer({ isOpen, onClose }: UserDrawerProps) {
             {/* Content Container */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 custom-scrollbar">
               <AnimatePresence mode="wait">
+                {view === 'profile' && (
+                  <motion.div 
+                    key="profile"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="space-y-6"
+                  >
+                    <button 
+                      onClick={() => setView('menu')}
+                      className="flex items-center gap-2 text-neutral-500 hover:text-white transition-colors text-sm font-bold mb-4"
+                    >
+                      {language === 'ar' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                      رجوع
+                    </button>
+                    
+                    <div className="text-center mb-8">
+                      <div className="w-24 h-24 rounded-[2rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center overflow-hidden mx-auto mb-4">
+                        {profile?.photoURL ? (
+                          <img src={profile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                          <UserIcon className="w-10 h-10 text-amber-500" />
+                        )}
+                      </div>
+                      <h3 className="text-xl font-bold">{t('edit_profile')}</h3>
+                      <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest mt-1">{t('profile_subtitle')}</p>
+                    </div>
+
+                    <form onSubmit={handleUpdateProfile} className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 px-2 uppercase tracking-widest">{t('full_name_label')}</label>
+                        <input 
+                          type="text"
+                          required
+                          value={newFullName}
+                          onChange={(e) => setNewFullName(e.target.value)}
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-amber-500 transition-colors"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 px-2 uppercase tracking-widest">{t('username_label')}</label>
+                        <input 
+                          type="text"
+                          required
+                          value={newUsername}
+                          onChange={(e) => setNewUsername(e.target.value)}
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-2xl py-4 px-6 text-white font-bold focus:outline-none focus:border-amber-500 transition-colors"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-neutral-500 px-2 uppercase tracking-widest">{t('email_label')}</label>
+                        <input 
+                          type="text"
+                          disabled
+                          value={user.email || ''}
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl py-4 px-6 text-neutral-500 font-bold opacity-60"
+                        />
+                      </div>
+
+                      <button 
+                        type="submit"
+                        disabled={loading || !newUsername || newUsername === profile?.username}
+                        className="w-full bg-white text-black py-5 rounded-2xl font-black text-lg disabled:opacity-50 transition-all"
+                      >
+                        {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : t('update_profile')}
+                      </button>
+
+                      <AnimatePresence>
+                        {success && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-2 text-emerald-500 text-xs font-bold"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            {success}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </form>
+                  </motion.div>
+                )}
+
                 {view === 'menu' && (
                   <motion.div 
                     key="menu"
