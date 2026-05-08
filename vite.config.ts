@@ -21,7 +21,7 @@ export default defineConfig(({mode}) => {
           theme_color: '#f59e0b',
           background_color: '#000000',
           display: 'standalone',
-          display_override: ['window-controls-overlay', 'minimal-ui'],
+          display_override: ['window-controls-overlay', 'minimal-ui', 'tabbed', 'edge_side_panel' as any],
           start_url: '/',
           id: '/',
           scope: '/',
@@ -32,6 +32,10 @@ export default defineConfig(({mode}) => {
           iarc_rating_id: 'e8464687-f273-424a-931b-7a2e4b3f88f2',
           related_applications: [],
           prefer_related_applications: false,
+          // @ts-expect-error - PWABuilder specific/experimental properties
+          note_taking: {
+            new_note_url: '/new-note'
+          },
           protocol_handlers: [
             {
               protocol: 'web+scanor',
@@ -76,25 +80,49 @@ export default defineConfig(({mode}) => {
               short_name: 'تتبع',
               description: 'متابعة حالة طلبك',
               url: '/track',
-              icons: [{ src: 'https://cdn-icons-png.flaticon.com/512/2649/2649297.png', sizes: '192x192' }]
+              icons: [{ src: 'https://cdn-icons-png.flaticon.com/512/2649/2649297.png', sizes: '192x192', type: 'image/png' }]
             }
           ],
           screenshots: [
             {
               src: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1080&h=1920&auto=format&fit=crop',
               sizes: '1080x1920',
-              type: 'image/png',
+              type: 'image/jpeg',
               form_factor: 'narrow',
               label: 'Scanor Store Mobile'
             },
             {
               src: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1920&h=1080&auto=format&fit=crop',
               sizes: '1920x1080',
-              type: 'image/png',
+              type: 'image/jpeg',
               form_factor: 'wide',
               label: 'Scanor Store Desktop'
             }
-          ]
+          ],
+          widgets: [
+            {
+              name: 'Scanor Balance',
+              description: 'شاهد رصيدك في سكانور ستور',
+              tag: 'balance',
+              template: 'balance-template',
+              ms_ac_template: 'balance.json',
+              data: 'balance-data',
+              type: 'application/json',
+              icons: [{ src: 'https://cdn-icons-png.flaticon.com/512/8002/8002123.png', sizes: '512x512', type: 'image/png' }]
+            }
+          ] as any,
+          scope_extensions: [
+            { origin: 'https://scan-six-flax.vercel.app' }
+          ] as any,
+          file_handlers: [
+            {
+              action: '/open-file',
+              accept: {
+                'text/plain': ['.txt'],
+                'application/json': ['.json']
+              }
+            }
+          ] as any,
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
