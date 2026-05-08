@@ -1,14 +1,10 @@
 [
   {
-    "relation": [
-      "delegate_permission/common.handle_all_urls"
-    ],
+    "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "app.vercel.storeee_chi.twa",
-      "sha256_cert_fingerprints": [
-        "4E:06:3F:C1:53:2B:28:D0:0E:7E:BB:43:84:A3:22:25:D8:48:3B:F9:5E:E0:2A:CB:56:94:2E:A7:FC:F9:AF:68"
-      ]
+      "package_name": "app.vercel.scanorstore.twa",
+      "sha256_cert_fingerprints": ["74:18:D7:3A:CC:87:4C:0C:1C:D1:E7:77:54:1A:07:92:B5:41:95:78:57:07:C7:F1:BB:42:22:22:54:19:4D:5D"]
     }
   }
 ]

@@ -231,20 +231,22 @@ export default function Home() {
             <p className="text-neutral-500 text-right">أفضل العروض والأسعار المحدثة دورياً</p>
           </div>
           
-          <div className="flex flex-col items-end gap-3">
-            <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">اختيار عملة الدفع</span>
-            <div className="flex bg-neutral-900 p-1 rounded-2xl border border-neutral-800" dir="ltr">
+          <div className="flex flex-col items-end gap-4">
+            <span className="text-xs font-black text-neutral-500 uppercase tracking-[0.2em]">اختيار عملة الدفع</span>
+            <div className="grid grid-cols-2 gap-6 w-full md:w-auto" dir="ltr">
               <button 
                 onClick={() => setCurrency('SAR')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SAR' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
+                className={`flex flex-col items-center gap-4 px-10 py-8 rounded-[2.5rem] border-2 transition-all group ${currency === 'SAR' ? 'bg-amber-500 border-amber-500 text-black shadow-[0_30px_60px_rgba(245,158,11,0.25)]' : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:border-neutral-700'}`}
               >
-                ريال سعودي
+                <span className="text-6xl group-hover:scale-110 transition-transform">🇸🇦</span>
+                <span className="text-sm font-black uppercase tracking-tighter">ريال سعودي</span>
               </button>
               <button 
                 onClick={() => setCurrency('SDG')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SDG' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
+                className={`flex flex-col items-center gap-4 px-10 py-8 rounded-[2.5rem] border-2 transition-all group ${currency === 'SDG' ? 'bg-amber-500 border-amber-500 text-black shadow-[0_30px_60px_rgba(245,158,11,0.25)]' : 'bg-neutral-900 border-neutral-800 text-neutral-500 hover:border-neutral-700'}`}
               >
-                جنيه سوداني
+                <span className="text-6xl group-hover:scale-110 transition-transform">🇸🇩</span>
+                <span className="text-sm font-black uppercase tracking-tighter">جنيه سوداني</span>
               </button>
             </div>
           </div>
@@ -292,24 +294,24 @@ export default function Home() {
       {/* Checkout Modal */}
       <AnimatePresence>
         {selectedPackage && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelectedPackage(null)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm" 
+              onClick={() => { setSelectedPackage(null); setCheckoutStep('details'); }}
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-[2.5rem] overflow-hidden relative z-10 flex flex-col max-h-[90dvh]"
+              className="bg-neutral-900 border border-neutral-800 w-full max-w-xl max-h-[90vh] rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col z-10"
             >
               <div className="p-8 border-b border-neutral-800 sticky top-0 bg-neutral-900 z-20 flex justify-between items-center shrink-0" dir="rtl">
                 <div>
                   <h3 className="text-2xl font-bold mb-1">
-                    {checkoutStep === 'details' ? 'بيانات الشحن' : checkoutStep === 'payment' ? 'الدفع الإلكتروني' : 'مراجعة الطلب'}
+                    {checkoutStep === 'details' ? 'بيانات الشحن' : 'إتمام التحويل'}
                   </h3>
                   <p className="text-neutral-500 text-sm">باقة {selectedPackage.amount} شدة</p>
                 </div>
@@ -334,189 +336,163 @@ export default function Home() {
                           type="text" 
                           required
                           placeholder="مثال: 512345678"
-                          className={`w-full bg-neutral-950 border border-neutral-800 text-white px-6 py-5 rounded-[1.5rem] focus:ring-2 focus:ring-amber-500 outline-none transition-all font-mono text-lg`}
+                          className="w-full bg-neutral-950 border border-neutral-800 text-white px-6 py-5 rounded-[1.5rem] focus:ring-2 focus:ring-amber-500 outline-none transition-all font-mono text-lg"
                           value={orderForm.playerId}
                           onChange={(e) => setOrderForm({ ...orderForm, playerId: e.target.value })}
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">البريد الإلكتروني</label>
-                        <input 
-                          type="email" 
-                          required
-                          placeholder="address@email.com"
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-amber-500 transition-colors text-left"
-                          value={orderForm.email}
-                          onChange={(e) => setOrderForm({ ...orderForm, email: e.target.value })}
-                        />
-                      </div>
+                    <div className="grid grid-cols-1 gap-6">
                       <div>
                         <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">رقم الجوال</label>
                         <input 
                           type="tel" 
                           required
                           placeholder="05xxxxxxx"
-                          className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-amber-500 transition-colors text-left"
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl px-5 py-5 text-white focus:outline-none focus:border-amber-500 transition-colors text-left font-mono"
                           value={orderForm.phone}
                           onChange={(e) => setOrderForm({ ...orderForm, phone: e.target.value })}
                         />
                       </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">وسيلة الدفع</label>
-                      <div className="grid grid-cols-2 gap-3" dir="ltr">
-                        {currency === 'SDG' ? (
-                          <PaymentTab id="bok" name="بنك الخرطوم" current={orderForm.paymentMethod} set={(id) => setOrderForm({ ...orderForm, paymentMethod: id })} />
-                        ) : (
-                          <PaymentTab id="al_rajhi" name="بنك الراجحي" current={orderForm.paymentMethod} set={(id) => setOrderForm({ ...orderForm, paymentMethod: id })} />
-                        )}
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">البريد الإلكتروني (اختياري)</label>
+                        <input 
+                          type="email" 
+                          placeholder="address@email.com"
+                          className="w-full bg-neutral-950 border border-neutral-800 rounded-2xl px-5 py-5 text-white focus:outline-none focus:border-amber-500 transition-colors text-left"
+                          value={orderForm.email}
+                          onChange={(e) => setOrderForm({ ...orderForm, email: e.target.value })}
+                        />
                       </div>
                     </div>
+                  </form>
+                ) : (
+                  <div className="space-y-6 pb-4">
+                    <div className="p-6 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] text-center">
+                      <p className="text-amber-500 font-black text-lg mb-1">يرجي تحويل قيمة اليوسي الي رقم الحساب بالاسفل</p>
+                      <p className="text-neutral-400 text-xs">يرجى التأكد من تحويل المبلغ المطلوب بدقة</p>
+                    </div>
 
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="mt-4 p-6 bg-neutral-950 border border-neutral-800 rounded-3xl space-y-4"
-                    >
-                      <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl text-center">
-                        <p className="text-amber-500 font-black text-sm">الرجاء التحويل للرقم الحساب والرفاق الاشعار</p>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center px-4">
+                        <span className="text-neutral-500 font-bold text-xs uppercase tracking-widest">إجمالي المبلغ</span>
+                        <span className="text-2xl font-black text-white">
+                          {currency === 'SDG' ? selectedPackage.price_sdg.toLocaleString() : selectedPackage.price_sar.toFixed(2)} {getSymbol()}
+                        </span>
                       </div>
-                      <h4 className="text-amber-500 font-bold text-sm mb-2 border-b border-neutral-800 pb-2">بيانات التحويل</h4>
-                      {orderForm.paymentMethod === 'bok' && (
-                        <>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-neutral-500">رقم الحساب:</span>
-                            <span className="font-mono text-amber-500 font-bold">9800579</span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-neutral-500">الاسم:</span>
-                            <span className="font-bold">محمد المعتز</span>
-                          </div>
-                        </>
-                      )}
-                      {orderForm.paymentMethod === 'al_rajhi' && (
-                        <>
-                          <div className="flex flex-col gap-1 text-sm">
-                            <span className="text-neutral-500">رقم الحساب:</span>
-                            <span className="font-mono text-white font-bold break-all">644000010006087618978</span>
-                          </div>
-                          <div className="flex flex-col gap-1 text-sm">
-                            <span className="text-neutral-500">الآيبان (IBAN):</span>
-                            <span className="font-mono text-xs text-white font-bold break-all">SA67 8000 0644 6080 1761 8978</span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm pt-1">
-                            <span className="text-neutral-500">الاسم:</span>
-                            <span className="font-bold">محمد المعتز</span>
-                          </div>
-                        </>
-                      )}
 
-                      <div className="pt-4 border-t border-neutral-800">
-                        <label className="block text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">ارفع صورة الإيصال بعد التحويل</label>
-                        <div className="relative group">
-                          <input 
-                            type="file" 
-                            accept="image/*"
-                            required
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            onChange={(e) => setReceipt(e.target.files ? e.target.files[0] : null)}
-                          />
-                          <div className={`w-full border-2 border-dashed ${receipt ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-neutral-800 bg-neutral-900 group-hover:border-neutral-700'} rounded-2xl py-6 flex flex-col items-center justify-center transition-all`}>
-                             {receipt ? (
-                               <>
-                                 <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
-                                 <span className="text-sm font-bold text-emerald-500">تم اختيار الإيصال ✓</span>
-                                 <span className="text-[10px] text-neutral-500 mt-1">{receipt.name}</span>
-                               </>
-                             ) : (
-                               <>
-                                 <Download className="w-8 h-8 text-neutral-600 mb-2 group-hover:text-neutral-400 transition-colors" />
-                                 <span className="text-xs font-bold text-neutral-500">اختر صورة الإيصال</span>
-                               </>
-                             )}
+                      <div className="bg-neutral-950 border border-neutral-800 p-6 rounded-[2rem] space-y-4">
+                        <div className="flex flex-col gap-3">
+                          <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">وسيلة الدفع المتوفرة</label>
+                          <div className="flex items-center gap-3 p-3 bg-neutral-900 rounded-2xl border border-neutral-800">
+                            <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center font-bold text-black">
+                              {currency === 'SDG' ? 'BOK' : 'SA'}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold">{currency === 'SDG' ? 'بنك الخرطوم' : 'مصرف الراجحي'}</p>
+                              <p className="text-[10px] text-neutral-500 uppercase font-black">Transfer Details</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3 pt-2">
+                          {currency === 'SDG' ? (
+                            <>
+                              <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
+                                <p className="text-xs text-neutral-500 mb-1">رقم الحساب</p>
+                                <p className="text-lg font-mono font-black text-amber-500">9800579</p>
+                              </div>
+                              <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
+                                <p className="text-xs text-neutral-500 mb-1">اسم المستفيد</p>
+                                <p className="font-bold text-white">محمد المعتز</p>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
+                                <p className="text-xs text-neutral-500 mb-1">رقم الحساب</p>
+                                <p className="text-sm font-mono font-black text-amber-500 break-all">644000010006087618978</p>
+                              </div>
+                              <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
+                                <p className="text-xs text-neutral-500 mb-1">الآيبان (IBAN)</p>
+                                <p className="text-sm font-mono font-black text-white break-all">SA67 8000 0644 6080 1761 8978</p>
+                              </div>
+                              <div className="bg-neutral-900 p-4 rounded-2xl border border-neutral-800">
+                                <p className="text-xs text-neutral-500 mb-1">اسم المستفيد</p>
+                                <p className="font-bold text-white">محمد المعتز</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="pt-4 border-t border-neutral-900">
+                          <label className="block text-xs font-black uppercase tracking-widest text-neutral-500 mb-4">إرفاق إشعار التحويل</label>
+                          <div className="relative group cursor-pointer" onClick={() => document.getElementById('receipt-upload')?.click()}>
+                            <input 
+                              id="receipt-upload"
+                              type="file" 
+                              accept="image/*"
+                              className="hidden" 
+                              onChange={(e) => setReceipt(e.target.files ? e.target.files[0] : null)}
+                            />
+                            <div className={`w-full border-2 border-dashed ${receipt ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-neutral-800 bg-neutral-900 group-hover:border-neutral-700'} rounded-[1.5rem] py-8 flex flex-col items-center justify-center transition-all`}>
+                               {receipt ? (
+                                 <>
+                                   <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-2" />
+                                   <span className="text-sm font-bold text-emerald-500">تم اختيار الإيصال ✓</span>
+                                 </>
+                               ) : (
+                                 <>
+                                   <Download className="w-10 h-10 text-neutral-700 mb-2 group-hover:text-amber-500 transition-colors" />
+                                   <span className="text-xs font-bold text-neutral-500">اضغط هنا لإرفاق الإشعار</span>
+                                 </>
+                               )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </motion.div>
-                  </form>
-        ) : checkoutStep === 'payment' ? (
-          <Elements stripe={stripePromise}>
-            <PaymentForm 
-              amount={formatPrice(selectedPackage?.price_sar || 0)}
-              currency={getSymbol()}
-              onSuccess={handlePaymentSuccess}
-              onCancel={() => setCheckoutStep('review')}
-            />
-          </Elements>
-        ) : (
-          <div className="space-y-8 text-right pb-4">
-            <div className="grid grid-cols-1 gap-4">
-              <div className="p-6 bg-neutral-950 rounded-3xl border border-neutral-800 space-y-4">
-                <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
-                  <span className="text-neutral-500 text-sm">الباقة المختارة</span>
-                  <span className="font-bold">{selectedPackage.amount} UC</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
-                   <span className="text-neutral-500 text-sm">معرف اللاعب</span>
-                   <span className="font-mono text-white">{orderForm.playerId}</span>
-                </div>
-                <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
-                   <span className="text-neutral-500 text-sm">البريد الإلكتروني</span>
-                   <span className="text-sm truncate max-w-[150px]">{orderForm.email}</span>
-                </div>
-                <div className="flex justify-between items-center pb-2">
-                   <span className="text-neutral-500 text-sm">وسيلة الدفع</span>
-                   <span className="font-bold uppercase text-amber-500">{orderForm.paymentMethod}</span>
-                </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="p-6 bg-amber-500/5 rounded-3xl border border-amber-500/20">
-                <div className="flex justify-between items-center font-black text-2xl">
-                  <span className="text-neutral-400">الإجمالي</span>
-                  <span className="text-amber-500 tracking-tight">
-                    {currency === 'SDG' ? selectedPackage.price_sdg.toLocaleString() : selectedPackage.price_sar.toFixed(2)} {getSymbol()}
-                  </span>
-                </div>
+              <div className="p-8 border-t border-neutral-800 bg-neutral-900 sticky bottom-0 z-20" dir="rtl">
+                {checkoutStep === 'details' ? (
+                  <button 
+                    form="checkout-form"
+                    type="submit"
+                    disabled={loading || orderForm.playerId.length < 5 || orderForm.phone.length < 9}
+                    className="w-full bg-amber-500 text-black py-5 rounded-[1.5rem] font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30px_rgba(245,158,11,0.2)] disabled:opacity-50"
+                  >
+                    استمرار لإتمام التحويل
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={handleOrder}
+                      disabled={loading || !receipt}
+                      className="w-full bg-emerald-500 text-black py-5 rounded-[1.5rem] font-black text-lg hover:bg-emerald-400 transition-all disabled:opacity-50 shadow-[0_10px_30px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2"
+                    >
+                      {loading ? "جاري الإرسال..." : (
+                        <>
+                          <Zap className="w-5 h-5 fill-current" />
+                          إرسال الإشعار وتأكيد الطلب
+                        </>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => setCheckoutStep('details')}
+                      disabled={loading}
+                      className="w-full py-4 text-neutral-500 hover:text-white transition-colors text-sm font-bold"
+                    >
+                      تعديل البيانات السابقة
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
-      </div>
-
-      <div className="p-8 border-t border-neutral-800 bg-neutral-900 sticky bottom-0 z-20" dir="rtl">
-        {checkoutStep === 'details' ? (
-            <button 
-            form="checkout-form"
-            type="submit"
-            disabled={loading || orderForm.playerId.length < 5 || !receipt}
-            className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30px_rgba(245,158,11,0.2)] disabled:opacity-50 disabled:grayscale"
-          >
-            {loading ? "جاري الإرسال..." : (orderForm.playerId.length >= 5 ? (!receipt ? "ارفق الإيصال للمتابعة" : "تم التحويل ✓ إرسال الطلب") : "أدخل معرف صحيح للمتابعة")}
-          </button>
-        ) : checkoutStep === 'review' && (
-          <div className="flex flex-col gap-3">
-            <button 
-              onClick={handleOrder}
-              disabled={loading || !receipt}
-              className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_30px_rgba(245,158,11,0.2)]"
-            >
-              {loading ? "جاري المعالجة..." : "تم الدفع ✓ إرسال الطلب"}
-            </button>
-            <button 
-              onClick={() => setCheckoutStep('details')}
-              disabled={loading}
-              className="w-full py-4 text-neutral-400 hover:text-white transition-colors text-sm font-bold"
-            >
-              تعديل البيانات
-            </button>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  </div>
-)}
       </AnimatePresence>
 
       {/* Success Modal */}
