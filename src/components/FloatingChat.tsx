@@ -140,23 +140,27 @@ export default function FloatingChat() {
             {!isEmailSubmitted ? (
               <div className="flex-1 p-8 flex flex-col justify-center items-center text-center space-y-6">
                 <div className="w-20 h-20 bg-neutral-800 rounded-3xl flex items-center justify-center mb-4">
-                   <User className="w-10 h-10 text-amber-500" />
+                   <MessageSquare className="w-10 h-10 text-amber-500" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold mb-2">مرحباً بك!</h3>
-                  <p className="text-sm text-neutral-500">يرجى إدخال بريدك الإلكتروني لبدء المحادثة ومتابعة طلباتك</p>
+                  <h3 className="text-xl font-bold mb-2">الدعم الفني المباشر</h3>
+                  <p className="text-sm text-neutral-500">تحدث مباشرة مع محمد المعتز عبر واتساب لحل أي مشكلة أو استفسار</p>
                 </div>
-                <form onSubmit={handleEmailSubmit} className="w-full space-y-3">
-                  <input 
-                    type="email" 
-                    required
-                    placeholder="example@email.com"
-                    className="w-full bg-neutral-850 border border-neutral-800 rounded-2xl px-5 py-4 focus:outline-none focus:border-amber-500 text-center"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                  <button className="w-full bg-amber-500 text-black py-4 rounded-2xl font-black">بدء المحادثة</button>
-                </form>
+                <a 
+                  href="https://wa.me/966552232752" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="w-full bg-emerald-500 text-black py-5 rounded-2xl font-black text-center flex items-center justify-center gap-2 hover:bg-emerald-400 transition-all shadow-[0_10px_30px_rgba(16,185,129,0.2)]"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  تحدث عبر واتساب
+                </a>
+                <button 
+                  onClick={() => setIsEmailSubmitted(true)}
+                  className="text-xs text-neutral-500 hover:text-white transition-colors underline"
+                >
+                  أو استخدم المحادثة الكتابية هنا
+                </button>
               </div>
             ) : (
               <>

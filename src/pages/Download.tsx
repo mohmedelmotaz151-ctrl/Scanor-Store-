@@ -67,20 +67,21 @@ export default function DownloadPage() {
               <div className="w-14 h-14 bg-amber-500 rounded-2xl flex items-center justify-center shadow-[0_10px_30px_rgba(245,158,11,0.3)]">
                 <Smartphone className="w-8 h-8 text-black" />
               </div>
-              <h2 className="text-2xl font-black">أندرويد (APK / PWA)</h2>
+              <h2 className="text-2xl font-black">تطبيق أندرويد</h2>
             </div>
             <p className="text-neutral-500 mb-8 leading-relaxed">
-              تطبيق سكانور يعمل بتقنية **PWA** المتطورة. لا حاجة لتحميل ملفات APK ضخمة، فقط اضغط على تثبيت وسيعمل كـ تطبيق كامل.
+              تطبيق سكانور متاح حالياً كـ **PWA** (تطبيق ويب متقدم) لضمان السرعة والأمان. <br />
+              <span className="text-amber-500/80 text-sm font-bold">قريباً: نسخة APK الكاملة سيتم توفيرها قريباً.</span>
             </p>
             <button 
               onClick={handleInstall}
               className="w-full bg-amber-500 text-black py-4 rounded-2xl font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_40px_rgba(245,158,11,0.2)] flex items-center justify-center gap-3"
             >
               <Download className="w-6 h-6" />
-              تثبيت التطبيق (PWA)
+              تثبيت الآن (PWA)
             </button>
             <p className="text-[10px] text-neutral-600 mt-4 text-center">
-              * يدعم جميع إصدارات أندرويد عبر متصفح Chrome.
+              * التثبيت يتم مباشرة عبر المتصفح دون الحاجة لمتجر تطبيقات.
             </p>
           </motion.div>
 

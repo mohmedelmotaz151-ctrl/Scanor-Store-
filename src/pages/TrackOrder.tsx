@@ -1,31 +1,41 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Search, Loader2, Package, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
+import { useLocation } from "react-router-dom";
 
 export default function TrackOrder() {
+  const location = useLocation();
   const [orderId, setOrderId] = useState("");
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleTrack = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderId) return;
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('id');
+    if (id) {
+      setOrderId(id);
+      fetchOrder(id);
+    }
+  }, [location.search]);
+
+  const fetchOrder = async (id: string) => {
+    if (!id) return;
     
     setLoading(true);
     setError("");
     setOrder(null);
     
     try {
-      const docRef = doc(db, "orders", orderId.trim());
+      const docRef = doc(db, "orders", id.trim());
       let docSnap;
       try {
         docSnap = await getDoc(docRef);
       } catch (e) {
-        handleFirestoreError(e, OperationType.GET, `orders/${orderId.trim()}`);
+        handleFirestoreError(e, OperationType.GET, `orders/${id.trim()}`);
       }
       
       if (docSnap && docSnap.exists()) {
@@ -33,7 +43,7 @@ export default function TrackOrder() {
         setOrder({
           id: docSnap.id,
           ...data,
-          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt)
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt || Date.now())
         });
       } else {
         setError("لم يتم العثور على الطلب. يرجى التأكد من رقم الطلب.");
@@ -46,10 +56,15 @@ export default function TrackOrder() {
     }
   };
 
+  const handleTrack = async (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchOrder(orderId);
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-20">
       <div className="text-center mb-16">
-        <h1 className="text-5xl font-black mb-6 uppercase tracking-tight">Track Your <span className="text-amber-500">Order</span></h1>
+        <h1 className="text-5xl font-black mb-6 tracking-tight">تتبع <span className="text-amber-500">طلبك</span></h1>
         <p className="text-neutral-400 max-w-lg mx-auto">
           أدخل رقم الطلب الخاص بك لمتابعة حالة الشحن في الوقت الفعلي. 
           ستجد رقم الطلب في فاتورتك أو بريدك الإلكتروني.
@@ -57,13 +72,13 @@ export default function TrackOrder() {
       </div>
 
       <div className="bg-neutral-900 border border-neutral-800 rounded-[3rem] p-10 md:p-16">
-        <form onSubmit={handleTrack} className="flex flex-col md:flex-row gap-4 mb-12">
+        <form onSubmit={handleTrack} className="flex flex-col md:flex-row gap-4 mb-12" dir="rtl">
           <div className="relative flex-1">
-            <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+            <Search className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
             <input 
               type="text" 
               placeholder="مثال: ORD-123-XYZ"
-              className="w-full bg-neutral-950 border border-neutral-800 rounded-3xl pl-16 pr-6 py-5 text-xl font-mono focus:outline-none focus:border-amber-500 transition-colors uppercase"
+              className="w-full bg-neutral-950 border border-neutral-800 rounded-3xl pr-16 pl-6 py-5 text-xl font-mono focus:outline-none focus:border-amber-500 transition-colors uppercase"
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
             />
@@ -83,6 +98,7 @@ export default function TrackOrder() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4 text-red-500 font-medium"
+              dir="rtl"
             >
               <AlertCircle className="w-6 h-6" />
               {error}
@@ -96,9 +112,9 @@ export default function TrackOrder() {
               exit={{ opacity: 0 }}
               className="space-y-10"
             >
-              <div className="flex flex-wrap items-center justify-between gap-6 pb-10 border-b border-neutral-800">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 block mb-2">Order Information</span>
+              <div className="flex flex-wrap items-center justify-between gap-6 pb-10 border-b border-neutral-800" dir="rtl">
+                <div className="text-right">
+                  <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 block mb-2">رقم الطلب</span>
                   <h3 className="text-3xl font-black font-mono tracking-tighter truncate max-w-[250px]">{order.id}</h3>
                 </div>
                 <div className="text-right">
@@ -107,9 +123,8 @@ export default function TrackOrder() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12" dir="rtl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-right" dir="rtl">
                 <div className="space-y-6">
-                  <DetailItem label="اسم الحساب" value={order.playerName || "غير متوفر"} />
                   <DetailItem label="معرف اللاعب" value={order.playerId} isMono />
                   <DetailItem label="الباقة" value={`${order.amount || order.packageName || 0} UC`} />
                 </div>

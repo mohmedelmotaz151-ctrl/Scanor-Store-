@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Zap, ShieldCheck, Trophy, ArrowRight, X, Download, Gamepad2, Search, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Zap, ShieldCheck, Trophy, ArrowRight, X, Download, Gamepad2, Search, CheckCircle2, AlertCircle, Loader2, Gem } from "lucide-react";
 import { useCurrency } from "../context/CurrencyContext";
 import { useAuth } from "../context/AuthContext";
 import { addDoc, collection, serverTimestamp, updateDoc, doc } from "firebase/firestore";
@@ -30,7 +30,7 @@ export default function Home() {
   const [packages, setPackages] = useState<UCPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<UCPackage | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<'details' | 'review' | 'payment'>('details');
-  const [orderForm, setOrderForm] = useState<any>({ playerId: "", email: user?.email || "", phone: user?.phoneNumber || "", paymentMethod: "mada", otp: "", currentOrderId: null });
+  const [orderForm, setOrderForm] = useState<any>({ playerId: "", email: user?.email || "", phone: user?.phoneNumber || "", paymentMethod: "al_rajhi", otp: "", currentOrderId: null });
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [verifyingPlayer, setVerifyingPlayer] = useState(false);
   const [receipt, setReceipt] = useState<File | null>(null);
@@ -63,31 +63,17 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (orderForm.playerId.length >= 8) {
-      const timeoutId = setTimeout(async () => {
-        setVerifyingPlayer(true);
-        setPlayerName(null);
-        try {
-          // Real simulation API call
-          const res = await fetch(`/api/pubg/verify/${orderForm.playerId}`);
-          if (res.ok) {
-            const data = await res.json();
-            setPlayerName(data.name);
-          } else {
-             setPlayerName("PUBG_USER_" + orderForm.playerId.slice(-4));
-          }
-        } catch (err) {
-          console.error(err);
-          setPlayerName("PLAYER_" + orderForm.playerId.slice(-4));
-        } finally {
-          setVerifyingPlayer(false);
-        }
-      }, 800);
-      return () => clearTimeout(timeoutId);
-    } else {
-      setPlayerName(null);
-    }
+    // Player name resolution removed as requested
+    setPlayerName(null);
   }, [orderForm.playerId]);
+
+  useEffect(() => {
+    if (currency === 'SDG') {
+      setOrderForm((prev: any) => ({ ...prev, paymentMethod: 'bok' }));
+    } else {
+      setOrderForm((prev: any) => ({ ...prev, paymentMethod: 'al_rajhi' }));
+    }
+  }, [currency]);
 
   useEffect(() => {
     fetch("/api/packages")
@@ -96,11 +82,12 @@ export default function Home() {
       .catch(() => {
         // Fallback static packages if API fails
         setPackages([
-            { id: "p1", amount: 60, price_sar: 4.5, price_sdg: 3500, bonus: 0, image: "" },
-            { id: "p2", amount: 325, price_sar: 19, price_sdg: 14000, bonus: 25, image: "" },
-            { id: "p3", amount: 660, price_sar: 38, price_sdg: 28000, bonus: 60, image: "" },
-            { id: "p4", amount: 1800, price_sar: 95, price_sdg: 75000, bonus: 200, image: "" },
-            { id: "p5", amount: 3850, price_sar: 190, price_sdg: 150000, bonus: 450, image: "" }
+            { id: "p1", amount: 60, price_sar: 5.49, price_sdg: 5929, bonus: 0, image: "" },
+            { id: "p2", amount: 325, price_sar: 19.29, price_sdg: 20833, bonus: 25, image: "" },
+            { id: "p3", amount: 660, price_sar: 36.49, price_sdg: 39409, bonus: 60, image: "" },
+            { id: "p4", amount: 1800, price_sar: 88.39, price_sdg: 95461, bonus: 180, image: "" },
+            { id: "p5", amount: 3850, price_sar: 174.89, price_sdg: 188881, bonus: 450, image: "" },
+            { id: "p6", amount: 8100, price_sar: 347.79, price_sdg: 375613, bonus: 900, image: "" }
         ]);
       });
   }, []);
@@ -109,7 +96,7 @@ export default function Home() {
     e.preventDefault();
     setLoading(true);
 
-    if (orderForm.paymentMethod === 'bok' && !receipt) {
+    if (!receipt) {
       alert("يرجى تحميل صورة إشعار التحويل");
       setLoading(false);
       return;
@@ -120,13 +107,13 @@ export default function Home() {
       const orderData = {
         userId: user?.uid || "anonymous",
         playerId: orderForm.playerId,
-        playerName: playerName || "Unknown",
+        playerName: "Player", // Default as requested to not show resolution
         packageId: selectedPackage?.id,
         amount: selectedPackage?.amount,
-        price: formatPrice(selectedPackage?.price_sar || 0),
+        price: currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : (currency === 'USD' ? (selectedPackage?.price_sar! * 0.27).toFixed(2) : selectedPackage?.price_sar.toFixed(2)),
         currency: currency,
         symbol: getSymbol(),
-        status: 'pending_payment',
+        status: 'pending_verification',
         paymentMethod: orderForm.paymentMethod,
         email: orderForm.email,
         phone: orderForm.phone,
@@ -135,9 +122,9 @@ export default function Home() {
 
       let docRef;
       try {
-        // Handle BOK Receipt (Simulated Upload)
+        // Handle Receipt (Simulated Upload)
         let receiptUrl = null;
-        if (orderForm.paymentMethod === 'bok' && receipt) {
+        if (receipt) {
           // In a real app: const uploadResult = await uploadBytes(ref, receipt);
           // receiptUrl = await getDownloadURL(uploadResult.ref);
           receiptUrl = `https://simulated-storage.scanor.com/receipts/${Date.now()}_${receipt.name}`;
@@ -146,33 +133,25 @@ export default function Home() {
 
         docRef = await addDoc(collection(db, "orders"), orderData);
         
-        // Detailed Notification for Admin
-        if (orderForm.paymentMethod === 'bok') {
-          fetch("/api/admin/notify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              orderId: docRef.id,
-              type: 'BOK_TRANSFER_PENDING',
-              playerId: orderForm.playerId,
-              receiptUrl: (orderData as any).receiptUrl,
-              message: `طلب تحويل بنكي جديد لـ ${playerName}. الباقة: ${selectedPackage?.amount} UC. يرجى مراجعة إيصال التحويل وشحن الحساب.`
-            })
-          });
-        }
+        // Notify Admin
+        fetch("/api/admin/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: docRef.id,
+            type: 'MANUAL_PAYMENT_PENDING',
+            playerId: orderForm.playerId,
+            receiptUrl: (orderData as any).receiptUrl,
+            message: `طلب دفع يدوي جديد لـ ${playerName}. الباقة: ${selectedPackage?.amount} UC. وسيلة الدفع: ${orderForm.paymentMethod}`
+          })
+        });
       } catch (e) {
         handleFirestoreError(e, OperationType.CREATE, "orders");
       }
 
-      setOrderForm({ ...orderForm, currentOrderId: docRef.id });
-
-      if (orderForm.paymentMethod === 'bok') {
-        const text = encodeURIComponent(`طلب شحن جديد (تحويل بنكي)\nرقم الطلب: ${docRef.id}\nالمعرف: ${orderForm.playerId}\nالاسم: ${playerName}\nالباقة: ${selectedPackage?.amount} UC\nالمبلغ: ${formatPrice(selectedPackage?.price_sar || 0)} ${getSymbol()}`);
-        window.open(`https://wa.me/966552232752?text=${text}`, '_blank');
-        setSuccessOrder({ id: docRef.id, ...orderData });
-      } else {
-        setCheckoutStep('payment');
-      }
+      const text = encodeURIComponent(`طلب شحن جديد (دفع يدوي)\nرقم الطلب: ${docRef?.id}\nاللاعب: ${orderForm.playerId}\nالباقة: ${selectedPackage?.amount} UC\nالمبلغ: ${currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : (currency === 'USD' ? (selectedPackage?.price_sar! * 0.27).toFixed(2) : selectedPackage?.price_sar.toFixed(2))} ${getSymbol()}\nالوسيلة: ${orderForm.paymentMethod}`);
+      window.open(`https://wa.me/966552232752?text=${text}`, '_blank');
+      setSuccessOrder({ id: docRef?.id, ...orderData });
     } catch (err) {
       console.error(err);
       alert("فشل في إرسال طلب الشحن");
@@ -203,7 +182,7 @@ export default function Home() {
         body: JSON.stringify({
           orderId: orderForm.currentOrderId,
           type: 'PAYMENT_SUCCESS',
-          message: `تم دفع الطلب ${orderForm.currentOrderId} بنجاح بقيمة ${formatPrice(selectedPackage?.price_sar || 0)} ${getSymbol()}`
+          message: `تم دفع الطلب ${orderForm.currentOrderId} بنجاح بقيمة ${currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : (currency === 'USD' ? (selectedPackage?.price_sar! * 0.27).toFixed(2) : selectedPackage?.price_sar.toFixed(2))} ${getSymbol()}`
         })
       });
 
@@ -313,7 +292,7 @@ export default function Home() {
             >
               <div className="flex justify-between items-start mb-6">
                 <div className="w-16 h-16 bg-neutral-800 rounded-2xl flex items-center justify-center group-hover:bg-amber-500/10 transition-colors">
-                  <Gamepad2 className="w-8 h-8 text-amber-500" />
+                  <Gem className="w-8 h-8 text-amber-500" />
                 </div>
                 {pkg.bonus > 0 && (
                   <span className="bg-amber-500 text-black text-[10px] font-black px-2 py-1 rounded-md uppercase">
@@ -321,11 +300,15 @@ export default function Home() {
                   </span>
                 )}
               </div>
-              <h3 className="text-4xl font-black mb-1">{pkg.amount} <span className="text-xl text-neutral-500 font-normal">UC</span></h3>
+              <h3 className="text-4xl font-black mb-1">
+                <span className="text-amber-500 mr-1">💎</span>
+                {pkg.amount} 
+                <span className="text-xl text-neutral-500 font-normal ml-1">UC</span>
+              </h3>
               <p className="text-neutral-400 mb-6 text-sm">PUBG Mobile Unknown Cash</p>
               <div className="flex items-center justify-between">
                 <span className="text-2xl font-bold flex items-baseline gap-1">
-                  {formatPrice(pkg.price_sar)} 
+                  {currency === 'SDG' ? pkg.price_sdg.toLocaleString() : (currency === 'USD' ? (pkg.price_sar * 0.27).toFixed(2) : pkg.price_sar.toFixed(2))} 
                   <span className="text-xs text-neutral-500">{getSymbol()}</span>
                 </span>
                 <span className="bg-neutral-800 text-neutral-300 px-4 py-2 rounded-full text-[10px] font-black group-hover:bg-amber-500 group-hover:text-black transition-colors uppercase">
@@ -444,12 +427,12 @@ export default function Home() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-[2.5rem] overflow-hidden relative z-10"
+              className="bg-neutral-900 border border-neutral-800 w-full max-w-lg rounded-[2.5rem] overflow-hidden relative z-10 flex flex-col max-h-[90dvh]"
             >
-              <div className="p-8 border-b border-neutral-800 flex justify-between items-center" dir="rtl">
+              <div className="p-8 border-b border-neutral-800 sticky top-0 bg-neutral-900 z-20 flex justify-between items-center shrink-0" dir="rtl">
                 <div>
                   <h3 className="text-2xl font-bold mb-1">
-                    {checkoutStep === 'details' ? 'بيانات الشحن' : checkoutStep === 'otp' ? 'التحقق من الهوية' : 'مراجعة الطلب'}
+                    {checkoutStep === 'details' ? 'بيانات الشحن' : checkoutStep === 'payment' ? 'الدفع الإلكتروني' : 'مراجعة الطلب'}
                   </h3>
                   <p className="text-neutral-500 text-sm">باقة {selectedPackage.amount} شدة</p>
                 </div>
@@ -463,43 +446,22 @@ export default function Home() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
-              <div className="p-8" dir="rtl">
+
+              <div className="overflow-y-auto flex-1 scrollbar-hide px-8 py-6" dir="rtl">
                 {checkoutStep === 'details' ? (
-                  <form onSubmit={(e) => { e.preventDefault(); setCheckoutStep('review'); }} className="space-y-6">
+                  <form id="checkout-form" onSubmit={(e) => { e.preventDefault(); if (orderForm.playerId.length >= 5) setCheckoutStep('review'); else alert('يرجى إدخال معرف اللاعب بشكل صحيح'); }} className="space-y-6 pb-2">
                     <div className="relative">
                       <label className="block text-xs font-black uppercase tracking-[0.2em] text-neutral-500 mb-3 px-2">معرف اللاعب (Player ID)</label>
                       <div className="relative">
                         <input 
                           type="text" 
                           required
-                          placeholder="مثال: 5123456789"
-                          className="w-full bg-black/40 border border-neutral-800 rounded-2xl px-5 py-5 text-white focus:outline-none focus:border-amber-500 transition-all font-mono text-left tracking-widest text-lg placeholder:tracking-normal placeholder:text-neutral-700"
+                          placeholder="مثال: 512345678"
+                          className={`w-full bg-neutral-950 border border-neutral-800 text-white px-6 py-5 rounded-[1.5rem] focus:ring-2 focus:ring-amber-500 outline-none transition-all font-mono text-lg`}
                           value={orderForm.playerId}
                           onChange={(e) => setOrderForm({ ...orderForm, playerId: e.target.value })}
                         />
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                          {verifyingPlayer ? (
-                            <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
-                          ) : playerName ? (
-                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                          ) : (
-                            <Search className="w-5 h-5 text-neutral-600" />
-                          )}
-                        </div>
                       </div>
-                      <AnimatePresence>
-                        {playerName && (
-                          <motion.div 
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mt-3 flex items-center gap-2 text-emerald-500 text-xs font-bold bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10"
-                          >
-                            <Gamepad2 className="w-4 h-4" />
-                            اسم الحساب: {playerName}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
@@ -528,116 +490,153 @@ export default function Home() {
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">وسيلة الدفع</label>
                       <div className="grid grid-cols-2 gap-3" dir="ltr">
-                        {currency === 'SAR' ? (
-                          <>
-                            <PaymentTab id="mada" name="Mada" current={orderForm.paymentMethod} set={(id) => setOrderForm({ ...orderForm, paymentMethod: id })} />
-                            <PaymentTab id="apple" name="Apple Pay" current={orderForm.paymentMethod} set={(id) => setOrderForm({ ...orderForm, paymentMethod: id })} />
-                            <PaymentTab id="visa" name="Visa/Master" current={orderForm.paymentMethod} set={(id) => setOrderForm({ ...orderForm, paymentMethod: id })} />
-                          </>
+                        {currency === 'SDG' ? (
+                          <PaymentTab id="bok" name="بنك الخرطوم" current={orderForm.paymentMethod} set={(id) => setOrderForm({ ...orderForm, paymentMethod: id })} />
                         ) : (
-                          <>
-                            <PaymentTab id="bok" name="Bank of Khartoum" current={orderForm.paymentMethod} set={(id) => setOrderForm({ ...orderForm, paymentMethod: id })} />
-                            <PaymentTab id="stc" name="STC Pay" current={orderForm.paymentMethod} set={(id) => setOrderForm({ ...orderForm, paymentMethod: id })} />
-                          </>
+                          <PaymentTab id="al_rajhi" name="بنك الراجحي" current={orderForm.paymentMethod} set={(id) => setOrderForm({ ...orderForm, paymentMethod: id })} />
                         )}
                       </div>
                     </div>
 
-                    {orderForm.paymentMethod === 'bok' && (
-                      <div className="mt-4 p-6 bg-neutral-950 border border-neutral-800 rounded-3xl space-y-4">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-neutral-500">رقم الحساب:</span>
-                          <span className="font-mono text-amber-500">9800579</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-neutral-500">الاسم:</span>
-                          <span className="font-bold">MohmedElmotaz</span>
-                        </div>
-                        <div className="pt-4 border-t border-neutral-800">
-                          <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">إرفاق إشعار التحويل</label>
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="mt-4 p-6 bg-neutral-950 border border-neutral-800 rounded-3xl space-y-4"
+                    >
+                      <h4 className="text-amber-500 font-bold text-sm mb-2 border-b border-neutral-800 pb-2">بيانات التحويل</h4>
+                      {orderForm.paymentMethod === 'bok' && (
+                        <>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-neutral-500">رقم الحساب:</span>
+                            <span className="font-mono text-amber-500 font-bold">9800579</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-neutral-500">الاسم:</span>
+                            <span className="font-bold">محمد المعتز</span>
+                          </div>
+                        </>
+                      )}
+                      {orderForm.paymentMethod === 'al_rajhi' && (
+                        <>
+                          <div className="flex flex-col gap-1 text-sm">
+                            <span className="text-neutral-500">رقم الحساب:</span>
+                            <span className="font-mono text-white font-bold break-all">644000010006087618978</span>
+                          </div>
+                          <div className="flex flex-col gap-1 text-sm">
+                            <span className="text-neutral-500">الآيبان (IBAN):</span>
+                            <span className="font-mono text-xs text-white font-bold break-all">SA67 8000 0644 6080 1761 8978</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm pt-1">
+                            <span className="text-neutral-500">الاسم:</span>
+                            <span className="font-bold">محمد المعتز</span>
+                          </div>
+                        </>
+                      )}
+
+                      <div className="pt-4 border-t border-neutral-800">
+                        <label className="block text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">ارفع صورة الإيصال بعد التحويل</label>
+                        <div className="relative group">
                           <input 
                             type="file" 
                             accept="image/*"
-                            className="w-full text-xs text-neutral-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-black hover:file:bg-amber-400"
+                            required
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             onChange={(e) => setReceipt(e.target.files ? e.target.files[0] : null)}
                           />
+                          <div className={`w-full border-2 border-dashed ${receipt ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-neutral-800 bg-neutral-900 group-hover:border-neutral-700'} rounded-2xl py-6 flex flex-col items-center justify-center transition-all`}>
+                             {receipt ? (
+                               <>
+                                 <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
+                                 <span className="text-sm font-bold text-emerald-500">تم اختيار الإيصال ✓</span>
+                                 <span className="text-[10px] text-neutral-500 mt-1">{receipt.name}</span>
+                               </>
+                             ) : (
+                               <>
+                                 <Download className="w-8 h-8 text-neutral-600 mb-2 group-hover:text-neutral-400 transition-colors" />
+                                 <span className="text-xs font-bold text-neutral-500">اختر صورة الإيصال</span>
+                               </>
+                             )}
+                          </div>
                         </div>
                       </div>
-                    )}
-
-                    <button 
-                      type="submit"
-                      disabled={loading}
-                      className="w-full mt-8 bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30px_rgba(245,158,11,0.2)] disabled:opacity-50"
-                    >
-                      {loading ? "جاري الإرسال..." : "متابعة"}
-                    </button>
+                    </motion.div>
                   </form>
-                ) : checkoutStep === 'payment' ? (
-                  <Elements stripe={stripePromise}>
-                    <PaymentForm 
-                      amount={formatPrice(selectedPackage?.price_sar || 0)}
-                      currency={getSymbol()}
-                      onSuccess={handlePaymentSuccess}
-                      onCancel={() => setCheckoutStep('review')}
-                    />
-                  </Elements>
-                ) : (
-                  <div className="space-y-8 text-right">
-                    <div className="grid grid-cols-1 gap-4">
-                      <div className="p-6 bg-neutral-950 rounded-3xl border border-neutral-800 space-y-4">
-                        <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
-                          <span className="text-neutral-500 text-sm">الباقة المختارة</span>
-                          <span className="font-bold">{selectedPackage.amount} UC</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
-                           <span className="text-neutral-500 text-sm">اسم الحساب</span>
-                           <span className="font-bold text-emerald-500">{playerName || "غير متوفر"}</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
-                           <span className="text-neutral-500 text-sm">معرف اللاعب</span>
-                           <span className="font-mono text-white">{orderForm.playerId}</span>
-                        </div>
-                        <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
-                           <span className="text-neutral-500 text-sm">البريد الإلكتروني</span>
-                           <span className="text-sm truncate max-w-[150px]">{orderForm.email}</span>
-                        </div>
-                        <div className="flex justify-between items-center pb-2">
-                           <span className="text-neutral-500 text-sm">وسيلة الدفع</span>
-                           <span className="font-bold uppercase text-amber-500">{orderForm.paymentMethod}</span>
-                        </div>
-                      </div>
-
-                      <div className="p-6 bg-amber-500/5 rounded-3xl border border-amber-500/20">
-                        <div className="flex justify-between items-center font-black text-2xl">
-                          <span className="text-neutral-400">الإجمالي</span>
-                          <span className="text-amber-500 tracking-tight">{formatPrice(selectedPackage.price_sar)} {getSymbol()}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <button 
-                        onClick={handleOrder}
-                        disabled={loading}
-                        className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_30px_rgba(245,158,11,0.2)]"
-                      >
-                        {loading ? "جاري المعالجة..." : "تأكيد الدفع والشحن الآن"}
-                      </button>
-                      <button 
-                        onClick={() => setCheckoutStep('details')}
-                        disabled={loading}
-                        className="w-full py-4 text-neutral-400 hover:text-white transition-colors text-sm font-bold"
-                      >
-                        تعديل البيانات
-                      </button>
-                    </div>
-                  </div>
-                )}
+        ) : checkoutStep === 'payment' ? (
+          <Elements stripe={stripePromise}>
+            <PaymentForm 
+              amount={formatPrice(selectedPackage?.price_sar || 0)}
+              currency={getSymbol()}
+              onSuccess={handlePaymentSuccess}
+              onCancel={() => setCheckoutStep('review')}
+            />
+          </Elements>
+        ) : (
+          <div className="space-y-8 text-right pb-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="p-6 bg-neutral-950 rounded-3xl border border-neutral-800 space-y-4">
+                <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
+                  <span className="text-neutral-500 text-sm">الباقة المختارة</span>
+                  <span className="font-bold">{selectedPackage.amount} UC</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
+                   <span className="text-neutral-500 text-sm">معرف اللاعب</span>
+                   <span className="font-mono text-white">{orderForm.playerId}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
+                   <span className="text-neutral-500 text-sm">البريد الإلكتروني</span>
+                   <span className="text-sm truncate max-w-[150px]">{orderForm.email}</span>
+                </div>
+                <div className="flex justify-between items-center pb-2">
+                   <span className="text-neutral-500 text-sm">وسيلة الدفع</span>
+                   <span className="font-bold uppercase text-amber-500">{orderForm.paymentMethod}</span>
+                </div>
               </div>
-            </motion.div>
+
+              <div className="p-6 bg-amber-500/5 rounded-3xl border border-amber-500/20">
+                <div className="flex justify-between items-center font-black text-2xl">
+                  <span className="text-neutral-400">الإجمالي</span>
+                  <span className="text-amber-500 tracking-tight">
+                    {currency === 'SDG' ? selectedPackage.price_sdg.toLocaleString() : (currency === 'USD' ? (selectedPackage.price_sar * 0.27).toFixed(2) : selectedPackage.price_sar.toFixed(2))} {getSymbol()}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
+      </div>
+
+      <div className="p-8 border-t border-neutral-800 bg-neutral-900 sticky bottom-0 z-20" dir="rtl">
+        {checkoutStep === 'details' ? (
+            <button 
+            form="checkout-form"
+            type="submit"
+            disabled={loading || orderForm.playerId.length < 5 || !receipt}
+            className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30px_rgba(245,158,11,0.2)] disabled:opacity-50 disabled:grayscale"
+          >
+            {loading ? "جاري الإرسال..." : (orderForm.playerId.length >= 5 ? (!receipt ? "ارفق الإيصال للمتابعة" : "تم التحويل ✓ إرسال الطلب") : "أدخل معرف صحيح للمتابعة")}
+          </button>
+        ) : checkoutStep === 'review' && (
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={handleOrder}
+              disabled={loading || !receipt}
+              className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_30px_rgba(245,158,11,0.2)]"
+            >
+              {loading ? "جاري المعالجة..." : "تم الدفع ✓ إرسال الطلب"}
+            </button>
+            <button 
+              onClick={() => setCheckoutStep('details')}
+              disabled={loading}
+              className="w-full py-4 text-neutral-400 hover:text-white transition-colors text-sm font-bold"
+            >
+              تعديل البيانات
+            </button>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  </div>
+)}
       </AnimatePresence>
 
       {/* Success Modal */}
@@ -658,12 +657,20 @@ export default function Home() {
                 تم استلام طلبك رقم <span className="text-white font-mono">{successOrder.id}</span> بنجاح. 
                 سيتم شحن الـ UC إلى المعرف <span className="text-white font-mono">{successOrder.playerId}</span> خلال دقائق.
               </p>
-              <button 
-                onClick={() => setSuccessOrder(null)}
-                className="w-full bg-neutral-800 text-white py-4 rounded-2xl font-bold hover:bg-neutral-700 transition-colors"
-              >
-                العودة للمتجر
-              </button>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => navigate(`/track?id=${successOrder.id}`)}
+                  className="w-full bg-amber-500 text-black py-4 rounded-2xl font-black hover:bg-amber-400 transition-colors"
+                >
+                  تتبع حالة الطلب الآن
+                </button>
+                <button 
+                  onClick={() => setSuccessOrder(null)}
+                  className="w-full bg-neutral-800 text-white py-4 rounded-2xl font-bold hover:bg-neutral-700 transition-colors"
+                >
+                  العودة للمتجر
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

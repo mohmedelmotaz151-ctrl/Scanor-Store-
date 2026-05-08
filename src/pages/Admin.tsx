@@ -196,6 +196,7 @@ export default function Admin() {
                   <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">اللاعب</th>
                   <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">الباقة</th>
                   <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">السعر</th>
+                  <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">الإيصال</th>
                   <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-right">الحالة</th>
                   <th className="px-8 py-6 text-xs font-bold uppercase tracking-widest text-neutral-500 text-left">الإجراءات</th>
                 </tr>
@@ -215,7 +216,24 @@ export default function Admin() {
                       <span className="bg-neutral-800 px-3 py-1 rounded-lg text-xs font-bold text-white">{order.amount} UC</span>
                     </td>
                     <td className="px-8 py-6 font-bold text-amber-500">
-                      {order.price} <span className="text-[10px] text-neutral-500">{order.symbol}</span>
+                      <div className="flex flex-col">
+                        <span>{order.price} {order.symbol}</span>
+                        <span className="text-[10px] text-neutral-500 uppercase">{order.paymentMethod}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                       {order.receiptUrl ? (
+                         <a 
+                           href={order.receiptUrl} 
+                           target="_blank" 
+                           rel="noreferrer"
+                           className="inline-flex items-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300 underline"
+                         >
+                           عرض الإيصال
+                         </a>
+                       ) : (
+                         <span className="text-xs text-neutral-600 italic">لا يوجد</span>
+                       )}
                     </td>
                     <td className="px-8 py-6">
                       <StatusBadge status={order.status} />

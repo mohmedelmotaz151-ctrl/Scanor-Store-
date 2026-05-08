@@ -28,11 +28,11 @@
         "currency": { "type": "string" },
         "symbol": { "type": "string" },
         "status": { "type": "string", "enum": ["pending_payment", "pending_verification", "processing", "completed", "failed"] },
-        "paymentMethod": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["stc_pay", "al_rajhi", "binance_pay", "urpay"] },
         "paymentId": { "type": "string" },
         "phone": { "type": "string" },
         "email": { "type": "string" },
-        "receiptUrl": { "type": "string" },
+        "receiptUrl": { "type": "string", "description": "URL of the uploaded payment receipt image" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
         "paidAt": { "type": "string", "format": "date-time" }

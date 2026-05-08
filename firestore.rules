@@ -74,22 +74,15 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      // allow get: if true; // Allow guest tracking if they have the ID
-      allow get: if existing().userId == 'anonymous' || (isSignedIn() && existing().userId == request.auth.uid) || isAdmin();
-      allow list: if (isSignedIn() && existing().userId == request.auth.uid) || isAdmin();
+      allow read: if true; // Allow anyone to track by ID
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
 
-      allow create: if (isSignedIn() && incoming().userId == request.auth.uid) || 
-                       (incoming().userId == 'anonymous');
+      allow create: if (
+        (isSignedIn() && incoming().userId == request.auth.uid) || 
+        (incoming().userId == 'anonymous')
+      ) && isValidOrder(incoming());
 
-      allow update: if (
-        isAdmin() || 
-        (isSignedIn() && existing().userId == request.auth.uid && (
-          // Action: Pay (Move from pending_payment to pending_verification)
-          (existing().status == 'pending_payment' && incoming().status == 'pending_verification' && 
-           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'paymentId', 'paidAt']))
-        ))
-      );
-
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
   }
