@@ -15,7 +15,7 @@ import Welcome from "./pages/Welcome";
 import SplashScreen from './components/SplashScreen';
 
 function AppContent() {
-  const { loading, user } = useAuth();
+  const { loading, user, isGuest } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
@@ -29,10 +29,10 @@ function AppContent() {
 
   return (
     <div key="app-root" className="min-h-screen bg-neutral-950 text-white font-sans selection:bg-amber-500/30">
-      {!user && window.location.pathname === '/' ? null : <Navbar />}
+      {!user && !isGuest && window.location.pathname === '/' ? null : <Navbar />}
       <main>
         <Routes>
-          <Route path="/" element={user ? <Home /> : <Welcome />} />
+          <Route path="/" element={user || isGuest ? <Home /> : <Welcome />} />
           <Route path="/track" element={<TrackOrder />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/download" element={<DownloadPage />} />
@@ -40,7 +40,7 @@ function AppContent() {
           <Route path="/privacy" element={<PrivacyPolicy />} />
         </Routes>
       </main>
-      {user || window.location.pathname !== '/' ? (
+      {user || isGuest || window.location.pathname !== '/' ? (
         <>
           <FloatingChat />
           <footer className="border-t border-neutral-800 py-12 mt-20 bg-black">

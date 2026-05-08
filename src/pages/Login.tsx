@@ -10,7 +10,7 @@ import {
   sendEmailVerification
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, googleProvider, appleProvider, db } from "../lib/firebase";
+import { auth, googleProvider, db } from "../lib/firebase";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -148,6 +148,12 @@ export default function Login() {
 
     try {
       if (!confirmationResult) {
+        if (!window.recaptchaVerifier) {
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible',
+            'callback': () => {}
+          });
+        }
         const formattedPhone = phoneNumber.startsWith("+") ? phoneNumber : `+${phoneNumber.replace(/^0/, '')}`;
         const result = await signInWithPhoneNumber(auth, formattedPhone, window.recaptchaVerifier);
         setConfirmationResult(result);
@@ -443,32 +449,29 @@ export default function Login() {
 
             <div className="mt-8 pt-8 border-t border-neutral-800 space-y-6 text-center">
               <p className="text-[10px] font-black text-neutral-600 uppercase tracking-widest">{t('social_login')}</p>
-              <div className="flex gap-4">
+              <div className="flex flex-col gap-4">
                 <button 
                   onClick={() => handleSocialLogin(googleProvider)}
-                  className="flex-1 h-14 bg-neutral-950 border border-neutral-800 rounded-2xl flex items-center justify-center hover:bg-neutral-800 transition-colors group"
-                  title="Google"
+                  className="w-full h-15 bg-white border border-neutral-200 rounded-2xl flex items-center justify-center gap-3 hover:bg-neutral-100 transition-all shadow-lg group"
                 >
-                  <Chrome className="w-6 h-6 text-neutral-400 group-hover:text-white transition-colors" />
+                  <Chrome className="w-6 h-6 text-[#4285F4]" />
+                  <span className="text-black font-black text-sm uppercase">Continue with Google</span>
                 </button>
-                <button 
-                  onClick={() => handleSocialLogin(appleProvider)}
-                  className="flex-1 h-14 bg-neutral-950 border border-neutral-800 rounded-2xl flex items-center justify-center hover:bg-neutral-800 transition-colors group"
-                  title="Apple"
-                >
-                  <Apple className="w-6 h-6 text-neutral-400 group-hover:text-white transition-colors" />
-                </button>
-                <button 
-                  onClick={() => {
-                    setError("");
-                    setSuccess(language === 'ar' ? "البصمة مسجلة! جاري الدخول..." : "Biometric verified! Logging in...");
-                    setTimeout(() => { navigate("/"); }, 1500);
-                  }}
-                  className="flex-1 h-14 bg-neutral-950 border border-neutral-800 rounded-2xl flex items-center justify-center hover:bg-neutral-800 transition-colors group"
-                  title={t('biometric_login')}
-                >
-                  <Fingerprint className="w-6 h-6 text-amber-500 group-hover:text-amber-400 transition-colors" />
-                </button>
+                
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => {
+                      setError("");
+                      setSuccess(language === 'ar' ? "البصمة مسجلة! جاري الدخول..." : "Biometric verified! Logging in...");
+                      setTimeout(() => { navigate("/"); }, 1500);
+                    }}
+                    className="flex-1 h-14 bg-neutral-950 border border-neutral-800 rounded-2xl flex items-center justify-center hover:bg-neutral-800 transition-colors group"
+                    title={t('biometric_login')}
+                  >
+                    <Fingerprint className="w-6 h-6 text-amber-500 group-hover:text-amber-400 transition-colors" />
+                    <span className="sr-only">{t('biometric_login')}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="pt-4">

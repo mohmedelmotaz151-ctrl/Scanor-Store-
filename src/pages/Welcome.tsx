@@ -3,9 +3,11 @@ import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { Gamepad2, ArrowRight, UserCircle, ShieldCheck, Zap } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
+import { useAuth } from "../context/AuthContext";
 
 const Welcome: React.FC = () => {
   const { t, language } = useLanguage();
+  const { continueAsGuest } = useAuth();
   const navigate = useNavigate();
 
   const features = [
@@ -92,7 +94,10 @@ const Welcome: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          onClick={() => navigate("/")}
+          onClick={() => {
+            continueAsGuest();
+            navigate("/");
+          }}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
           className="w-full h-16 bg-neutral-900 border border-neutral-800 text-neutral-300 font-semibold rounded-2xl flex items-center justify-center gap-2 hover:bg-neutral-800 transition-all"

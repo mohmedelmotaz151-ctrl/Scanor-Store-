@@ -18,15 +18,15 @@ import { useCurrency } from "../context/CurrencyContext";
 import UserDrawer from "./UserDrawer";
 
 export default function Navbar() {
-  const { user, profile } = useAuth();
+  const { user, profile, isGuest } = useAuth();
   const { language, setLanguage, t, dir } = useLanguage();
   const { formatPrice } = useCurrency();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Don't show navbar on welcome page if not logged in
-  if (!user && location.pathname === '/') return null;
+  // Don't show navbar on welcome page if not logged in and not guest
+  if (!user && !isGuest && location.pathname === '/') return null;
 
   const toggleLanguage = () => {
     setLanguage(language === 'ar' ? 'en' : 'ar');
