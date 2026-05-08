@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Search, Loader2, Package, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 
 export default function TrackOrder() {
   const [orderId, setOrderId] = useState("");
@@ -17,15 +20,27 @@ export default function TrackOrder() {
     setOrder(null);
     
     try {
-      const res = await fetch(`/api/orders/${orderId.toUpperCase().trim()}`);
-      const data = await res.json();
-      if (data.id) {
-        setOrder(data);
+      const docRef = doc(db, "orders", orderId.trim());
+      let docSnap;
+      try {
+        docSnap = await getDoc(docRef);
+      } catch (e) {
+        handleFirestoreError(e, OperationType.GET, `orders/${orderId.trim()}`);
+      }
+      
+      if (docSnap && docSnap.exists()) {
+        const data = docSnap.data();
+        setOrder({
+          id: docSnap.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt)
+        });
       } else {
-        setError("Order not found. Please check your Order ID.");
+        setError("لم يتم العثور على الطلب. يرجى التأكد من رقم الطلب.");
       }
     } catch (err) {
-      setError("Failed to fetch order details. Please try again.");
+      console.error(err);
+      setError("حدث خطأ أثناء جلب بيانات الطلب. يرجى المحاولة لاحقاً.");
     } finally {
       setLoading(false);
     }
@@ -47,7 +62,7 @@ export default function TrackOrder() {
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
             <input 
               type="text" 
-              placeholder="Enter Order ID (e.g. ORD-ABC123XYZ)"
+              placeholder="مثال: ORD-123-XYZ"
               className="w-full bg-neutral-950 border border-neutral-800 rounded-3xl pl-16 pr-6 py-5 text-xl font-mono focus:outline-none focus:border-amber-500 transition-colors uppercase"
               value={orderId}
               onChange={(e) => setOrderId(e.target.value)}
@@ -57,7 +72,7 @@ export default function TrackOrder() {
             disabled={loading}
             className="bg-amber-500 text-black px-10 py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Track Now"}
+            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "تتبع الآن"}
           </button>
         </form>
 
@@ -84,24 +99,24 @@ export default function TrackOrder() {
               <div className="flex flex-wrap items-center justify-between gap-6 pb-10 border-b border-neutral-800">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 block mb-2">Order Information</span>
-                  <h3 className="text-3xl font-black font-mono">{order.id}</h3>
+                  <h3 className="text-3xl font-black font-mono tracking-tighter truncate max-w-[250px]">{order.id}</h3>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 block mb-2">Current Status</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 block mb-2">الحالة الحالية</span>
                   <StatusBadge status={order.status} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12" dir="rtl">
                 <div className="space-y-6">
-                  <DetailItem label="Player ID" value={order.playerId} isMono />
-                  <DetailItem label="Package" value={order.packageName} />
-                  <DetailItem label="Email" value={order.email} />
+                  <DetailItem label="اسم الحساب" value={order.playerName || "غير متوفر"} />
+                  <DetailItem label="معرف اللاعب" value={order.playerId} isMono />
+                  <DetailItem label="الباقة" value={`${order.amount || order.packageName || 0} UC`} />
                 </div>
                 <div className="space-y-6">
-                  <DetailItem label="Payment Method" value={order.paymentMethod.toUpperCase()} />
-                  <DetailItem label="Total Paid" value={`${(order.price || 0).toLocaleString()} ${order.currency || 'SAR'}`} />
-                  <DetailItem label="Date Issued" value={new Date(order.createdAt).toLocaleString()} />
+                  <DetailItem label="وسيلة الدفع" value={(order.paymentMethod || "").toUpperCase()} />
+                  <DetailItem label="الإجمالي" value={`${order.price} ${order.symbol || order.currency}`} />
+                  <DetailItem label="تاريخ الطلب" value={new Date(order.createdAt).toLocaleString()} />
                 </div>
               </div>
 
@@ -110,12 +125,12 @@ export default function TrackOrder() {
                 <div className="flex items-center justify-between relative">
                   <div className="absolute top-1/2 left-0 w-full h-1 bg-neutral-800 -translate-y-1/2 z-0" />
                   <div className={`absolute top-1/2 left-0 h-1 bg-amber-500 -translate-y-1/2 z-0 transition-all duration-1000 ${
-                    order.status === 'pending' ? 'w-[15%]' : order.status === 'completed' ? 'w-full' : 'w-[50%]'
+                    order.status === 'pending_verification' ? 'w-[15%]' : order.status === 'completed' ? 'w-full' : 'w-[50%]'
                   }`} />
                   
-                  <StepIcon active={true} completed={true} icon={<Clock className="w-5 h-5" />} label="Paid" />
-                  <StepIcon active={order.status !== 'pending'} completed={order.status === 'completed'} icon={<Package className="w-5 h-5" />} label="Processing" />
-                  <StepIcon active={order.status === 'completed'} completed={order.status === 'completed'} icon={<CheckCircle2 className="w-5 h-5" />} label="Delivered" />
+                  <StepIcon active={true} completed={true} icon={<Clock className="w-5 h-5" />} label="تم الدفع" />
+                  <StepIcon active={order.status !== 'pending_verification'} completed={order.status === 'completed'} icon={<Package className="w-5 h-5" />} label="جاري المعالجة" />
+                  <StepIcon active={order.status === 'completed'} completed={order.status === 'completed'} icon={<CheckCircle2 className="w-5 h-5" />} label="تم التسليم" />
                 </div>
               </div>
             </motion.div>
@@ -128,15 +143,27 @@ export default function TrackOrder() {
 
 function StatusBadge({ status }: { status: string }) {
   const styles: any = {
-    pending: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+    pending_payment: "bg-red-500/10 text-red-500 border-red-500/20",
+    pending_verification: "bg-amber-500/10 text-amber-500 border-amber-500/20",
     processing: "bg-blue-500/10 text-blue-500 border-blue-500/20",
     completed: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
     failed: "bg-red-500/10 text-red-500 border-red-500/20"
   };
 
+  const getLabel = (s: string) => {
+    switch(s) {
+      case 'pending_payment': return 'بانتظار الدفع';
+      case 'pending_verification': return 'بانتظار التأكيد';
+      case 'processing': return 'جاري الشحن';
+      case 'completed': return 'مكتمل';
+      case 'failed': return 'فشل';
+      default: return s;
+    }
+  };
+
   return (
-    <span className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border ${styles[status]}`}>
-      {status}
+    <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border ${styles[status] || styles.pending_verification}`}>
+      {getLabel(status)}
     </span>
   );
 }

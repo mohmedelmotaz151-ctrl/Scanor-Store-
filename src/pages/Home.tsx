@@ -1,6 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Zap, ShieldCheck, Trophy, ArrowRight, X, Download, Gamepad2 } from "lucide-react";
+import { Zap, ShieldCheck, Trophy, ArrowRight, X, Download, Gamepad2, Search, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { useCurrency } from "../context/CurrencyContext";
+import { useAuth } from "../context/AuthContext";
+import { addDoc, collection, serverTimestamp, updateDoc, doc } from "firebase/firestore";
+import { db } from "../lib/firebase";
+
+import { useNavigate } from "react-router-dom";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
+import PaymentForm from "../components/PaymentForm";
+import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
+
+const stripePromise = loadStripe((import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || "pk_test_placeholder");
 
 interface UCPackage {
   id: string;
@@ -12,13 +24,16 @@ interface UCPackage {
 }
 
 export default function Home() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { currency, setCurrency, formatPrice, getSymbol } = useCurrency();
   const [packages, setPackages] = useState<UCPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<UCPackage | null>(null);
-  const [checkoutStep, setCheckoutStep] = useState<'details' | 'otp' | 'review'>('details');
-  const [currency, setCurrency] = useState<'SAR' | 'SDG'>('SAR');
-  const [orderForm, setOrderForm] = useState({ playerId: "", email: "", phone: "", paymentMethod: "mada", otp: "" });
+  const [checkoutStep, setCheckoutStep] = useState<'details' | 'review' | 'payment'>('details');
+  const [orderForm, setOrderForm] = useState<any>({ playerId: "", email: user?.email || "", phone: user?.phoneNumber || "", paymentMethod: "mada", otp: "", currentOrderId: null });
+  const [playerName, setPlayerName] = useState<string | null>(null);
+  const [verifyingPlayer, setVerifyingPlayer] = useState(false);
   const [receipt, setReceipt] = useState<File | null>(null);
-  const [otpSent, setOtpSent] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -48,52 +63,47 @@ export default function Home() {
   };
 
   useEffect(() => {
+    if (orderForm.playerId.length >= 8) {
+      const timeoutId = setTimeout(async () => {
+        setVerifyingPlayer(true);
+        setPlayerName(null);
+        try {
+          // Real simulation API call
+          const res = await fetch(`/api/pubg/verify/${orderForm.playerId}`);
+          if (res.ok) {
+            const data = await res.json();
+            setPlayerName(data.name);
+          } else {
+             setPlayerName("PUBG_USER_" + orderForm.playerId.slice(-4));
+          }
+        } catch (err) {
+          console.error(err);
+          setPlayerName("PLAYER_" + orderForm.playerId.slice(-4));
+        } finally {
+          setVerifyingPlayer(false);
+        }
+      }, 800);
+      return () => clearTimeout(timeoutId);
+    } else {
+      setPlayerName(null);
+    }
+  }, [orderForm.playerId]);
+
+  useEffect(() => {
     fetch("/api/packages")
       .then(res => res.json())
-      .then(setPackages);
+      .then(setPackages)
+      .catch(() => {
+        // Fallback static packages if API fails
+        setPackages([
+            { id: "p1", amount: 60, price_sar: 4.5, price_sdg: 3500, bonus: 0, image: "" },
+            { id: "p2", amount: 325, price_sar: 19, price_sdg: 14000, bonus: 25, image: "" },
+            { id: "p3", amount: 660, price_sar: 38, price_sdg: 28000, bonus: 60, image: "" },
+            { id: "p4", amount: 1800, price_sar: 95, price_sdg: 75000, bonus: 200, image: "" },
+            { id: "p5", amount: 3850, price_sar: 190, price_sdg: 150000, bonus: 450, image: "" }
+        ]);
+      });
   }, []);
-
-  const getPrice = (pkg: UCPackage) => {
-    return currency === 'SAR' ? pkg.price_sar : pkg.price_sdg;
-  };
-
-  const sendOtp = async () => {
-    setLoading(true);
-    try {
-      await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: orderForm.email })
-      });
-      setOtpSent(true);
-      setCheckoutStep('otp');
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verifyOtp = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ target: orderForm.email, code: orderForm.otp })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setCheckoutStep('review');
-      } else {
-        alert("رمز التحقق غير صحيح");
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,27 +116,98 @@ export default function Home() {
     }
 
     try {
-      const res = await fetch("/api/orders", {
+      // Save initial PENDING order to Firestore
+      const orderData = {
+        userId: user?.uid || "anonymous",
+        playerId: orderForm.playerId,
+        playerName: playerName || "Unknown",
+        packageId: selectedPackage?.id,
+        amount: selectedPackage?.amount,
+        price: formatPrice(selectedPackage?.price_sar || 0),
+        currency: currency,
+        symbol: getSymbol(),
+        status: 'pending_payment',
+        paymentMethod: orderForm.paymentMethod,
+        email: orderForm.email,
+        phone: orderForm.phone,
+        createdAt: serverTimestamp(),
+      };
+
+      let docRef;
+      try {
+        // Handle BOK Receipt (Simulated Upload)
+        let receiptUrl = null;
+        if (orderForm.paymentMethod === 'bok' && receipt) {
+          // In a real app: const uploadResult = await uploadBytes(ref, receipt);
+          // receiptUrl = await getDownloadURL(uploadResult.ref);
+          receiptUrl = `https://simulated-storage.scanor.com/receipts/${Date.now()}_${receipt.name}`;
+          (orderData as any).receiptUrl = receiptUrl;
+        }
+
+        docRef = await addDoc(collection(db, "orders"), orderData);
+        
+        // Detailed Notification for Admin
+        if (orderForm.paymentMethod === 'bok') {
+          fetch("/api/admin/notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              orderId: docRef.id,
+              type: 'BOK_TRANSFER_PENDING',
+              playerId: orderForm.playerId,
+              receiptUrl: (orderData as any).receiptUrl,
+              message: `طلب تحويل بنكي جديد لـ ${playerName}. الباقة: ${selectedPackage?.amount} UC. يرجى مراجعة إيصال التحويل وشحن الحساب.`
+            })
+          });
+        }
+      } catch (e) {
+        handleFirestoreError(e, OperationType.CREATE, "orders");
+      }
+
+      setOrderForm({ ...orderForm, currentOrderId: docRef.id });
+
+      if (orderForm.paymentMethod === 'bok') {
+        const text = encodeURIComponent(`طلب شحن جديد (تحويل بنكي)\nرقم الطلب: ${docRef.id}\nالمعرف: ${orderForm.playerId}\nالاسم: ${playerName}\nالباقة: ${selectedPackage?.amount} UC\nالمبلغ: ${formatPrice(selectedPackage?.price_sar || 0)} ${getSymbol()}`);
+        window.open(`https://wa.me/966552232752?text=${text}`, '_blank');
+        setSuccessOrder({ id: docRef.id, ...orderData });
+      } else {
+        setCheckoutStep('payment');
+      }
+    } catch (err) {
+      console.error(err);
+      alert("فشل في إرسال طلب الشحن");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (paymentId: string) => {
+    if (!orderForm.currentOrderId) return;
+    setLoading(true);
+    try {
+      const orderRef = doc(db, "orders", orderForm.currentOrderId);
+      try {
+        await updateDoc(orderRef, {
+          status: "pending_verification",
+          paymentId: paymentId,
+          paidAt: serverTimestamp()
+        });
+      } catch (e) {
+        handleFirestoreError(e, OperationType.UPDATE, `orders/${orderForm.currentOrderId}`);
+      }
+
+      // Notify Admin
+      fetch("/api/admin/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...orderForm,
-          packageId: selectedPackage?.id,
-          currency: currency,
-          price: selectedPackage ? getPrice(selectedPackage) : 0
+          orderId: orderForm.currentOrderId,
+          type: 'PAYMENT_SUCCESS',
+          message: `تم دفع الطلب ${orderForm.currentOrderId} بنجاح بقيمة ${formatPrice(selectedPackage?.price_sar || 0)} ${getSymbol()}`
         })
       });
-      const data = await res.json();
-      if (data.id) {
-        if (orderForm.paymentMethod === 'bok') {
-          // Open WhatsApp with details
-          const text = encodeURIComponent(`طلب شحن جديد\nالمعرف: ${orderForm.playerId}\nالباقة: ${selectedPackage?.amount} UC\nالمبلغ: ${getPrice(selectedPackage || {price_sdg: 0} as UCPackage)} SDG\nالإيميل: ${orderForm.email}\nرقم الطلب: ${data.id}`);
-          window.open(`https://wa.me/966552232752?text=${text}`, '_blank');
-        }
-        setSuccessOrder(data);
-        setSelectedPackage(null);
-        setCheckoutStep('details');
-      }
+
+      setSuccessOrder({ id: orderForm.currentOrderId });
     } catch (err) {
       console.error(err);
     } finally {
@@ -158,11 +239,14 @@ export default function Home() {
               أسعارنا تعتمد على السعر الرسمي مضافاً إليه 2% فقط كأرباح شخصية لضمان أقل سعر في السوق.
             </p>
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-              <button className="bg-amber-500 text-black px-8 py-4 rounded-full font-bold hover:bg-amber-400 transition-colors flex items-center gap-2 group">
+              <a href="#packages" className="bg-amber-500 text-black px-8 py-4 rounded-full font-bold hover:bg-amber-400 transition-colors flex items-center gap-2 group">
                 اشحن الآن
                 <ArrowRight className="w-5 h-5 group-hover:-translate-x-1 transition-transform rotate-180" />
-              </button>
-              <button className="bg-neutral-900 border border-neutral-800 px-8 py-4 rounded-full font-bold hover:bg-neutral-800 transition-colors">
+              </a>
+              <button 
+                onClick={() => navigate('/track')}
+                className="bg-neutral-900 border border-neutral-800 px-8 py-4 rounded-full font-bold hover:bg-neutral-800 transition-colors"
+              >
                 تتبع طلبك
               </button>
             </div>
@@ -196,18 +280,24 @@ export default function Home() {
             <p className="text-neutral-500 text-right">أفضل العروض والأسعار المحدثة دورياً</p>
           </div>
           
-          <div className="flex bg-neutral-900 p-1 rounded-2xl border border-neutral-800">
+          <div className="flex bg-neutral-900 p-1 rounded-2xl border border-neutral-800" dir="ltr">
             <button 
               onClick={() => setCurrency('SAR')}
-              className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${currency === 'SAR' ? 'bg-amber-500 text-black' : 'text-neutral-500 hover:text-white'}`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SAR' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
             >
-              الريال السعودي (SAR)
+              ر.س
             </button>
             <button 
               onClick={() => setCurrency('SDG')}
-              className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${currency === 'SDG' ? 'bg-amber-500 text-black' : 'text-neutral-500 hover:text-white'}`}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SDG' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
             >
-              الجنيه السوداني (SDG)
+              ج.س
+            </button>
+            <button 
+              onClick={() => setCurrency('USD')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'USD' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
+            >
+              USD
             </button>
           </div>
         </div>
@@ -234,11 +324,11 @@ export default function Home() {
               <h3 className="text-4xl font-black mb-1">{pkg.amount} <span className="text-xl text-neutral-500 font-normal">UC</span></h3>
               <p className="text-neutral-400 mb-6 text-sm">PUBG Mobile Unknown Cash</p>
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold">
-                  {currency === 'SAR' ? (pkg.price_sar || 0).toFixed(2) : (pkg.price_sdg || 0).toLocaleString()} 
-                  <span className="text-sm text-neutral-500 ml-1">{currency}</span>
+                <span className="text-2xl font-bold flex items-baseline gap-1">
+                  {formatPrice(pkg.price_sar)} 
+                  <span className="text-xs text-neutral-500">{getSymbol()}</span>
                 </span>
-                <span className="bg-neutral-800 text-neutral-300 px-4 py-2 rounded-full text-xs font-bold group-hover:bg-amber-500 group-hover:text-black transition-colors">
+                <span className="bg-neutral-800 text-neutral-300 px-4 py-2 rounded-full text-[10px] font-black group-hover:bg-amber-500 group-hover:text-black transition-colors uppercase">
                   Buy Now
                 </span>
               </div>
@@ -376,17 +466,40 @@ export default function Home() {
               
               <div className="p-8" dir="rtl">
                 {checkoutStep === 'details' ? (
-                  <form onSubmit={(e) => { e.preventDefault(); sendOtp(); }} className="space-y-6">
-                    <div>
-                      <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">معرف اللاعب (ID)</label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="e.g. 5123456789"
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-amber-500 transition-colors font-mono text-left"
-                        value={orderForm.playerId}
-                        onChange={(e) => setOrderForm({ ...orderForm, playerId: e.target.value })}
-                      />
+                  <form onSubmit={(e) => { e.preventDefault(); setCheckoutStep('review'); }} className="space-y-6">
+                    <div className="relative">
+                      <label className="block text-xs font-black uppercase tracking-[0.2em] text-neutral-500 mb-3 px-2">معرف اللاعب (Player ID)</label>
+                      <div className="relative">
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="مثال: 5123456789"
+                          className="w-full bg-black/40 border border-neutral-800 rounded-2xl px-5 py-5 text-white focus:outline-none focus:border-amber-500 transition-all font-mono text-left tracking-widest text-lg placeholder:tracking-normal placeholder:text-neutral-700"
+                          value={orderForm.playerId}
+                          onChange={(e) => setOrderForm({ ...orderForm, playerId: e.target.value })}
+                        />
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                          {verifyingPlayer ? (
+                            <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+                          ) : playerName ? (
+                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                          ) : (
+                            <Search className="w-5 h-5 text-neutral-600" />
+                          )}
+                        </div>
+                      </div>
+                      <AnimatePresence>
+                        {playerName && (
+                          <motion.div 
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mt-3 flex items-center gap-2 text-emerald-500 text-xs font-bold bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/10"
+                          >
+                            <Gamepad2 className="w-4 h-4" />
+                            اسم الحساب: {playerName}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
@@ -460,32 +573,15 @@ export default function Home() {
                       {loading ? "جاري الإرسال..." : "متابعة"}
                     </button>
                   </form>
-                ) : checkoutStep === 'otp' ? (
-                  <div className="space-y-6 text-center">
-                    <p className="text-neutral-400">تم إرسال رمز التحقق إلى بريدك الإلكتروني {orderForm.email}</p>
-                    <input 
-                      type="text" 
-                      placeholder="أدخل الرمز المكون من 6 أرقام"
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-amber-500 transition-colors font-mono text-center text-2xl tracking-[0.5em]"
-                      value={orderForm.otp}
-                      onChange={(e) => setOrderForm({ ...orderForm, otp: e.target.value })}
+                ) : checkoutStep === 'payment' ? (
+                  <Elements stripe={stripePromise}>
+                    <PaymentForm 
+                      amount={formatPrice(selectedPackage?.price_sar || 0)}
+                      currency={getSymbol()}
+                      onSuccess={handlePaymentSuccess}
+                      onCancel={() => setCheckoutStep('review')}
                     />
-                    <div className="flex flex-col gap-4">
-                      <button 
-                        onClick={verifyOtp}
-                        disabled={loading}
-                        className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30_rgba(245,158,11,0.2)]"
-                      >
-                        {loading ? "جاري التحقق..." : "تحقق الآن"}
-                      </button>
-                      <button 
-                        onClick={() => setCheckoutStep('details')}
-                        className="text-sm text-neutral-500 hover:text-white"
-                      >
-                        رجوع لتعديل البيانات
-                      </button>
-                    </div>
-                  </div>
+                  </Elements>
                 ) : (
                   <div className="space-y-8 text-right">
                     <div className="grid grid-cols-1 gap-4">
@@ -495,8 +591,12 @@ export default function Home() {
                           <span className="font-bold">{selectedPackage.amount} UC</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
+                           <span className="text-neutral-500 text-sm">اسم الحساب</span>
+                           <span className="font-bold text-emerald-500">{playerName || "غير متوفر"}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
                            <span className="text-neutral-500 text-sm">معرف اللاعب</span>
-                           <span className="font-mono text-emerald-500">{orderForm.playerId}</span>
+                           <span className="font-mono text-white">{orderForm.playerId}</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
                            <span className="text-neutral-500 text-sm">البريد الإلكتروني</span>
@@ -511,7 +611,7 @@ export default function Home() {
                       <div className="p-6 bg-amber-500/5 rounded-3xl border border-amber-500/20">
                         <div className="flex justify-between items-center font-black text-2xl">
                           <span className="text-neutral-400">الإجمالي</span>
-                          <span className="text-amber-500">{(getPrice(selectedPackage) || 0).toLocaleString()} {currency}</span>
+                          <span className="text-amber-500 tracking-tight">{formatPrice(selectedPackage.price_sar)} {getSymbol()}</span>
                         </div>
                       </div>
                     </div>

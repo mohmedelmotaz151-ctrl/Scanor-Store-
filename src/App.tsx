@@ -5,22 +5,28 @@ import Admin from "./pages/Admin";
 import DownloadPage from "./pages/Download";
 import Navbar from "./components/Navbar";
 import FloatingChat from "./components/FloatingChat";
+import { AuthProvider } from "./context/AuthContext";
+import { CurrencyProvider } from "./context/CurrencyContext";
+import Login from "./pages/Login";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-neutral-950 text-white font-sans selection:bg-amber-500/30">
-        <Navbar />
-        <main>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/track" element={<TrackOrder />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/download" element={<DownloadPage />} />
-          </Routes>
-        </main>
-        
-        <FloatingChat />
+    <AuthProvider>
+      <CurrencyProvider>
+        <BrowserRouter>
+        <div className="min-h-screen bg-neutral-950 text-white font-sans selection:bg-amber-500/30">
+          <Navbar />
+          <main>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/track" element={<TrackOrder />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/download" element={<DownloadPage />} />
+              <Route path="/login" element={<Login />} />
+            </Routes>
+          </main>
+          
+          <FloatingChat />
 
         <footer className="border-t border-neutral-800 py-12 mt-20 bg-black">
           <div className="max-w-7xl mx-auto px-6 text-center text-neutral-500 text-sm">
@@ -29,6 +35,8 @@ export default function App() {
           </div>
         </footer>
       </div>
-    </BrowserRouter>
+      </BrowserRouter>
+      </CurrencyProvider>
+    </AuthProvider>
   );
 }

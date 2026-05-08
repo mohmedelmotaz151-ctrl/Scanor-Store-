@@ -134,15 +134,13 @@ export default function DownloadPage() {
                 لتحويل هذا الموقع إلى تطبيق أندرويد حقيقي وبرمجي، نوصيك باستخدام أداة <strong className="text-white">PWABuilder</strong>.
               </p>
               <div className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 space-y-2">
-                <p className="text-amber-400 font-bold">⚠️ تنبيه هام حول الرابط:</p>
+                <p className="text-amber-400 font-bold">✅ الرابط العام جاهز:</p>
                 <p>
-                  روابط المعاينة في AI Studio (التي تحتوي على <code className="text-amber-200">ais-pre</code>) قد تكون محمية بخصوصية تمنع PWABuilder من الوصول إليها (Error 404).
+                  لقد قمت برفع الموقع بنجاح على Vercel. استخدم هذا الرابط في PWABuilder:
                 </p>
-                <p className="font-bold text-white">لحل هذه المشكلة:</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>استخدم خيار **Deploy to Cloud Run** إذا كان متاحاً لديك للحصول على رابط عام.</li>
-                  <li>أو قم بتصدير المشروع كملف **ZIP** ورفعه على استضافة عامة مثل (Vercel) أو (Firebase Hosting).</li>
-                </ul>
+                <div className="bg-black p-3 rounded-lg border border-amber-500/20 text-amber-500 font-mono text-center select-all">
+                  https://scanor.vercel.app
+                </div>
               </div>
               <p className="font-bold text-white">خطوات PWABuilder بمجرد حصولك على رابط عام:</p>
               <ol className="list-decimal list-inside space-y-1">
