@@ -54,6 +54,14 @@ export default defineConfig(({mode}) => {
           launch_handler: {
             client_mode: 'focus-existing'
           },
+          // @ts-expect-error - PWABuilder features
+          background_sync: {
+            active: true
+          },
+          // @ts-expect-error
+          periodic_background_sync: {
+            active: true
+          },
           icons: [
             {
               src: 'https://cdn-icons-png.flaticon.com/512/8002/8002123.png',
@@ -80,7 +88,7 @@ export default defineConfig(({mode}) => {
               short_name: 'تتبع',
               description: 'متابعة حالة طلبك',
               url: '/track',
-              icons: [{ src: 'https://cdn-icons-png.flaticon.com/512/2649/2649297.png', sizes: '192x192', type: 'image/png' }]
+              icons: [{ src: 'https://cdn-icons-png.flaticon.com/512/2649/2649297.png', sizes: '512x512', type: 'image/png' }]
             }
           ],
           screenshots: [
