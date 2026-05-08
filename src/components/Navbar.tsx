@@ -41,7 +41,7 @@ export default function Navbar() {
           <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center group-hover:rotate-12 transition-transform shadow-[0_0_20px_rgba(245,158,11,0.3)]">
             <Gamepad2 className="text-black w-6 h-6" />
           </div>
-          <span className="text-2xl font-bold tracking-tight text-white uppercase italic notranslate">Scanor<span className="text-amber-500 font-sans">STORE</span></span>
+          <span className="text-2xl font-bold tracking-tight text-white uppercase italic notranslate" translate="no">Scanor<span className="text-amber-500 font-sans">STORE</span></span>
         </Link>
 
         {/* ... (keep existing desktop links) */}

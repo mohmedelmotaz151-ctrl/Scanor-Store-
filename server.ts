@@ -22,7 +22,7 @@ if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify({
     orders: [],
     packages: [
-      { id: "uc_60", amount: 60, price_sar: 5.49, price_sdg: 5929, bonus: 0, image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&q=80" },
+      { id: "uc_60", amount: 60, price_sar: 4.1, price_sdg: 4100, bonus: 0, image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&q=80" },
       { id: "uc_325", amount: 325, price_sar: 19.29, price_sdg: 20833, bonus: 25, image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&q=80" },
       { id: "uc_660", amount: 660, price_sar: 36.49, price_sdg: 39409, bonus: 60, image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&q=80" },
       { id: "uc_1800", amount: 1800, price_sar: 88.39, price_sdg: 95461, bonus: 300, image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&q=80" },

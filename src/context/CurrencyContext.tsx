@@ -17,8 +17,8 @@ const RATES = {
 };
 
 const SYMBOLS = {
-  SAR: 'ر.س',
-  SDG: 'ج.س',
+  SAR: 'ريال سعودي',
+  SDG: 'جنيه سوداني',
 };
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {

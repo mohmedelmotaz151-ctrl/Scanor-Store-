@@ -12,11 +12,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import PaymentForm from "../components/PaymentForm";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 
-const stripePromise = loadStripe(
-  typeof import.meta.env !== 'undefined' && import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
-    ? import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
-    : "pk_test_placeholder"
-);
+const stripePromise = loadStripe((import.meta as any).env?.VITE_STRIPE_PUBLISHABLE_KEY || "pk_test_placeholder");
 
 interface UCPackage {
   id: string;
@@ -61,12 +57,12 @@ export default function Home() {
       .catch(() => {
         // Fallback static packages if API fails
         setPackages([
-            { id: "p1", amount: 60, price_sar: 5.49, price_sdg: 5929, bonus: 0, image: "" },
-            { id: "p2", amount: 325, price_sar: 19.29, price_sdg: 20833, bonus: 25, image: "" },
-            { id: "p3", amount: 660, price_sar: 36.49, price_sdg: 39409, bonus: 60, image: "" },
-            { id: "p4", amount: 1800, price_sar: 88.39, price_sdg: 95461, bonus: 180, image: "" },
-            { id: "p5", amount: 3850, price_sar: 174.89, price_sdg: 188881, bonus: 450, image: "" },
-            { id: "p6", amount: 8100, price_sar: 347.79, price_sdg: 375613, bonus: 900, image: "" }
+            { id: "uc_60", amount: 60, price_sar: 4.1, price_sdg: 4100, bonus: 0, image: "" },
+            { id: "uc_325", amount: 325, price_sar: 19.29, price_sdg: 20833, bonus: 25, image: "" },
+            { id: "uc_660", amount: 660, price_sar: 36.49, price_sdg: 39409, bonus: 60, image: "" },
+            { id: "uc_1800", amount: 1800, price_sar: 88.39, price_sdg: 95461, bonus: 180, image: "" },
+            { id: "uc_3850", amount: 3850, price_sar: 174.89, price_sdg: 188881, bonus: 450, image: "" },
+            { id: "uc_8100", amount: 8100, price_sar: 347.79, price_sdg: 375613, bonus: 900, image: "" }
         ]);
       });
   }, []);
@@ -185,7 +181,7 @@ export default function Home() {
               <Zap className="w-3 h-3 fill-current" />
               شحن فوري وتلقائي
             </div>
-            <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-8 font-sans">
+            <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-8 font-sans translate-no" translate="no">
               سكانور <br />
               <span className="text-amber-500">STORE.</span>
             </h1>
@@ -235,19 +231,22 @@ export default function Home() {
             <p className="text-neutral-500 text-right">أفضل العروض والأسعار المحدثة دورياً</p>
           </div>
           
-          <div className="flex bg-neutral-900 p-1 rounded-2xl border border-neutral-800" dir="ltr">
-            <button 
-              onClick={() => setCurrency('SAR')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SAR' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
-            >
-              ر.س
-            </button>
-            <button 
-              onClick={() => setCurrency('SDG')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SDG' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
-            >
-              ج.س
-            </button>
+          <div className="flex flex-col items-end gap-3">
+            <span className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">اختيار عملة الدفع</span>
+            <div className="flex bg-neutral-900 p-1 rounded-2xl border border-neutral-800" dir="ltr">
+              <button 
+                onClick={() => setCurrency('SAR')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SAR' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
+              >
+                ريال سعودي
+              </button>
+              <button 
+                onClick={() => setCurrency('SDG')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SDG' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
+              >
+                جنيه سوداني
+              </button>
+            </div>
           </div>
         </div>
 
@@ -381,6 +380,9 @@ export default function Home() {
                       animate={{ opacity: 1, height: 'auto' }}
                       className="mt-4 p-6 bg-neutral-950 border border-neutral-800 rounded-3xl space-y-4"
                     >
+                      <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl text-center">
+                        <p className="text-amber-500 font-black text-sm">الرجاء التحويل للرقم الحساب والرفاق الاشعار</p>
+                      </div>
                       <h4 className="text-amber-500 font-bold text-sm mb-2 border-b border-neutral-800 pb-2">بيانات التحويل</h4>
                       {orderForm.paymentMethod === 'bok' && (
                         <>
