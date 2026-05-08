@@ -13,9 +13,6 @@ export default defineConfig(({mode}) => {
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'auto',
-        devOptions: {
-          enabled: true
-        },
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
           name: 'Scanor Store',
@@ -34,6 +31,22 @@ export default defineConfig(({mode}) => {
           categories: ['games', 'shopping', 'entertainment'],
           iarc_rating_id: 'e8464687-f273-424a-931b-7a2e4b3f88f2',
           related_applications: [],
+          prefer_related_applications: false,
+          protocol_handlers: [
+            {
+              protocol: 'web+scanor',
+              url: '/track?id=%s'
+            }
+          ],
+          share_target: {
+            action: '/share',
+            method: 'GET',
+            params: {
+              title: 'title',
+              text: 'text',
+              url: 'url'
+            }
+          },
           launch_handler: {
             client_mode: 'focus-existing'
           },
@@ -83,7 +96,6 @@ export default defineConfig(({mode}) => {
             }
           ]
         },
-        registerType: 'autoUpdate',
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           runtimeCaching: [
