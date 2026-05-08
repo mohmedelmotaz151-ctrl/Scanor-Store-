@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type Currency = 'SAR' | 'SDG' | 'USD';
+export type Currency = 'SAR' | 'SDG';
 
 interface CurrencyContextType {
   currency: Currency;
@@ -14,18 +14,18 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 const RATES = {
   SAR: 1,
   SDG: 700, // تقريبي
-  USD: 0.27
 };
 
 const SYMBOLS = {
   SAR: 'ر.س',
   SDG: 'ج.س',
-  USD: '$'
 };
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [currency, setCurrency] = useState<Currency>(() => {
-    return (localStorage.getItem('user_currency') as Currency) || 'SAR';
+    const saved = localStorage.getItem('user_currency');
+    if (saved === 'SAR' || saved === 'SDG') return saved;
+    return 'SAR';
   });
 
   useEffect(() => {

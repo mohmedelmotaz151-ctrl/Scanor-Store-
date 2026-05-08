@@ -14,7 +14,7 @@ export default function App() {
     <AuthProvider>
       <CurrencyProvider>
         <BrowserRouter>
-        <div className="min-h-screen bg-neutral-950 text-white font-sans selection:bg-amber-500/30">
+        <div key="app-root" className="min-h-screen bg-neutral-950 text-white font-sans selection:bg-amber-500/30">
           <Navbar />
           <main>
             <Routes>

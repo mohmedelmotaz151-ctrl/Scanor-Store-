@@ -15,13 +15,12 @@ export default defineConfig(({mode}) => {
         injectRegister: 'auto',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
-          name: 'Scanor Store',
-          short_name: 'Scanor',
+          name: 'متجر سكانور',
+          short_name: 'سكانور',
           description: 'متجر سكانور لشحن شدات ببجي موبايل بشكل آمن وسريع',
           theme_color: '#f59e0b',
           background_color: '#000000',
           display: 'standalone',
-          display_override: ['window-controls-overlay', 'minimal-ui', 'tabbed', 'edge_side_panel' as any],
           start_url: '/',
           id: '/',
           scope: '/',
@@ -29,39 +28,6 @@ export default defineConfig(({mode}) => {
           dir: 'rtl',
           orientation: 'portrait',
           categories: ['games', 'shopping', 'entertainment'],
-          iarc_rating_id: 'e8464687-f273-424a-931b-7a2e4b3f88f2',
-          related_applications: [],
-          prefer_related_applications: false,
-          // @ts-expect-error - PWABuilder specific/experimental properties
-          note_taking: {
-            new_note_url: '/new-note'
-          },
-          protocol_handlers: [
-            {
-              protocol: 'web+scanor',
-              url: '/track?id=%s'
-            }
-          ],
-          share_target: {
-            action: '/share',
-            method: 'GET',
-            params: {
-              title: 'title',
-              text: 'text',
-              url: 'url'
-            }
-          },
-          launch_handler: {
-            client_mode: 'focus-existing'
-          },
-          // @ts-expect-error - PWABuilder features
-          background_sync: {
-            active: true
-          },
-          // @ts-expect-error
-          periodic_background_sync: {
-            active: true
-          },
           icons: [
             {
               src: 'https://cdn-icons-png.flaticon.com/512/8002/8002123.png',
@@ -107,30 +73,6 @@ export default defineConfig(({mode}) => {
               label: 'Scanor Store Desktop'
             }
           ],
-          widgets: [
-            {
-              name: 'Scanor Balance',
-              description: 'شاهد رصيدك في سكانور ستور',
-              tag: 'balance',
-              template: 'balance-template',
-              ms_ac_template: 'balance.json',
-              data: 'balance-data',
-              type: 'application/json',
-              icons: [{ src: 'https://cdn-icons-png.flaticon.com/512/8002/8002123.png', sizes: '512x512', type: 'image/png' }]
-            }
-          ] as any,
-          scope_extensions: [
-            { origin: 'https://scan-six-flax.vercel.app' }
-          ] as any,
-          file_handlers: [
-            {
-              action: '/open-file',
-              accept: {
-                'text/plain': ['.txt'],
-                'application/json': ['.json']
-              }
-            }
-          ] as any,
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],

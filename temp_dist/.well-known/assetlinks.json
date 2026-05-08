@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.vercel.storeee_chi.twa",
+      "sha256_cert_fingerprints": [
+        "4E:06:3F:C1:53:2B:28:D0:0E:7E:BB:43:84:A3:22:25:D8:48:3B:F9:5E:E0:2A:CB:56:94:2E:A7:FC:F9:AF:68"
+      ]
+    }
+  }
+]

@@ -12,7 +12,11 @@ import { Elements } from "@stripe/react-stripe-js";
 import PaymentForm from "../components/PaymentForm";
 import { handleFirestoreError, OperationType } from "../lib/firestore-errors";
 
-const stripePromise = loadStripe((import.meta as any).env.VITE_STRIPE_PUBLISHABLE_KEY || "pk_test_placeholder");
+const stripePromise = loadStripe(
+  typeof import.meta.env !== 'undefined' && import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
+    ? import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
+    : "pk_test_placeholder"
+);
 
 interface UCPackage {
   id: string;
@@ -34,33 +38,8 @@ export default function Home() {
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [verifyingPlayer, setVerifyingPlayer] = useState(false);
   const [receipt, setReceipt] = useState<File | null>(null);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showInstallBtn, setShowInstallBtn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [successOrder, setSuccessOrder] = useState<any>(null);
-
-  useEffect(() => {
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShowInstallBtn(true);
-    });
-
-    window.addEventListener('appinstalled', () => {
-      setShowInstallBtn(false);
-      setDeferredPrompt(null);
-    });
-  }, []);
-
-  const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setShowInstallBtn(false);
-    }
-    setDeferredPrompt(null);
-  };
 
   useEffect(() => {
     // Player name resolution removed as requested
@@ -110,7 +89,7 @@ export default function Home() {
         playerName: "Player", // Default as requested to not show resolution
         packageId: selectedPackage?.id,
         amount: selectedPackage?.amount,
-        price: currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : (currency === 'USD' ? (selectedPackage?.price_sar! * 0.27).toFixed(2) : selectedPackage?.price_sar.toFixed(2)),
+        price: currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : selectedPackage?.price_sar.toFixed(2),
         currency: currency,
         symbol: getSymbol(),
         status: 'pending_verification',
@@ -149,7 +128,7 @@ export default function Home() {
         handleFirestoreError(e, OperationType.CREATE, "orders");
       }
 
-      const text = encodeURIComponent(`طلب شحن جديد (دفع يدوي)\nرقم الطلب: ${docRef?.id}\nاللاعب: ${orderForm.playerId}\nالباقة: ${selectedPackage?.amount} UC\nالمبلغ: ${currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : (currency === 'USD' ? (selectedPackage?.price_sar! * 0.27).toFixed(2) : selectedPackage?.price_sar.toFixed(2))} ${getSymbol()}\nالوسيلة: ${orderForm.paymentMethod}`);
+      const text = encodeURIComponent(`طلب شحن جديد (دفع يدوي)\nرقم الطلب: ${docRef?.id}\nاللاعب: ${orderForm.playerId}\nالباقة: ${selectedPackage?.amount} UC\nالمبلغ: ${currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : selectedPackage?.price_sar.toFixed(2)} ${getSymbol()}\nالوسيلة: ${orderForm.paymentMethod}`);
       window.open(`https://wa.me/966552232752?text=${text}`, '_blank');
       setSuccessOrder({ id: docRef?.id, ...orderData });
     } catch (err) {
@@ -182,7 +161,7 @@ export default function Home() {
         body: JSON.stringify({
           orderId: orderForm.currentOrderId,
           type: 'PAYMENT_SUCCESS',
-          message: `تم دفع الطلب ${orderForm.currentOrderId} بنجاح بقيمة ${currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : (currency === 'USD' ? (selectedPackage?.price_sar! * 0.27).toFixed(2) : selectedPackage?.price_sar.toFixed(2))} ${getSymbol()}`
+          message: `تم دفع الطلب ${orderForm.currentOrderId} بنجاح بقيمة ${currency === 'SDG' ? selectedPackage?.price_sdg.toLocaleString() : selectedPackage?.price_sar.toFixed(2)} ${getSymbol()}`
         })
       });
 
@@ -200,11 +179,8 @@ export default function Home() {
       <section className="relative overflow-hidden pt-20 pb-32">
         <div className="absolute inset-0 bg-gradient-to-b from-amber-500/10 via-transparent to-transparent pointer-events-none" />
         <div className="max-w-7xl mx-auto px-6 relative text-right" dir="rtl">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center md:text-right max-w-3xl md:mr-auto md:ml-0"
-          >
+          <div className="text-center md:text-right max-w-3xl md:mr-auto md:ml-0">
+
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-bold uppercase tracking-widest mb-6">
               <Zap className="w-3 h-3 fill-current" />
               شحن فوري وتلقائي
@@ -229,7 +205,7 @@ export default function Home() {
                 تتبع طلبك
               </button>
             </div>
-          </motion.div>
+          </div>
 
           <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6">
             <FeatureCard 
@@ -272,12 +248,6 @@ export default function Home() {
             >
               ج.س
             </button>
-            <button 
-              onClick={() => setCurrency('USD')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'USD' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
-            >
-              USD
-            </button>
           </div>
         </div>
 
@@ -296,119 +266,27 @@ export default function Home() {
                 </div>
                 {pkg.bonus > 0 && (
                   <span className="bg-amber-500 text-black text-[10px] font-black px-2 py-1 rounded-md uppercase">
-                    +{pkg.bonus} Bonus
+                    +{pkg.bonus} إضافية
                   </span>
                 )}
               </div>
               <h3 className="text-4xl font-black mb-1">
                 <span className="text-amber-500 mr-1">💎</span>
                 {pkg.amount} 
-                <span className="text-xl text-neutral-500 font-normal ml-1">UC</span>
+                <span className="text-xl text-neutral-500 font-normal ml-1">شدة</span>
               </h3>
-              <p className="text-neutral-400 mb-6 text-sm">PUBG Mobile Unknown Cash</p>
+              <p className="text-neutral-400 mb-6 text-sm">شحن شدات ببجي موبايل (UC)</p>
               <div className="flex items-center justify-between">
                 <span className="text-2xl font-bold flex items-baseline gap-1">
-                  {currency === 'SDG' ? pkg.price_sdg.toLocaleString() : (currency === 'USD' ? (pkg.price_sar * 0.27).toFixed(2) : pkg.price_sar.toFixed(2))} 
+                  {currency === 'SDG' ? pkg.price_sdg.toLocaleString() : pkg.price_sar.toFixed(2)} 
                   <span className="text-xs text-neutral-500">{getSymbol()}</span>
                 </span>
                 <span className="bg-neutral-800 text-neutral-300 px-4 py-2 rounded-full text-[10px] font-black group-hover:bg-amber-500 group-hover:text-black transition-colors uppercase">
-                  Buy Now
+                  اشحن الآن
                 </span>
               </div>
             </motion.div>
           ))}
-        </div>
-      </section>
-
-      {/* App Download Section */}
-      <section className="max-w-7xl mx-auto px-6 py-24">
-        <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-[3rem] p-12 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 shadow-[0_20px_50px_rgba(245,158,11,0.3)]">
-          <div className="absolute top-0 right-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 pointer-events-none" />
-          <div className="relative z-10 text-right" dir="rtl">
-            <h2 className="text-4xl font-black text-black mb-4">ثبّت تطبيق سكانور الآن!</h2>
-            <p className="text-black/80 font-medium max-w-lg">
-              استمتع بتجربة شحن أسرع وأسهل مباشرة من شاشتك الرئيسية. وصول فوري للعروض بأفضل الأسعار وبضغطة زر واحدة.
-            </p>
-          </div>
-          <div className="relative z-10">
-            <a 
-              href="/download"
-              className="bg-black text-white px-10 py-5 rounded-3xl font-black text-lg hover:scale-105 active:scale-95 transition-all shadow-2xl flex items-center gap-3"
-            >
-              <Download className="w-6 h-6" />
-              تحميل وتثبيت التطبيق
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Rewards & Referral Section */}
-      <section className="bg-neutral-900/50 border-y border-neutral-800 py-24 overflow-hidden relative" dir="rtl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 blur-[100px] pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-6 relative">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-black uppercase tracking-[0.2em] mb-6">
-                <Trophy className="w-3 h-3" />
-                نظام الولاء والمكافآت
-              </div>
-              <h2 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
-                ادعُ أصدقاءك <br />
-                <span className="text-amber-500">واحصل على شدات مجانية!</span>
-              </h2>
-              <p className="text-lg text-neutral-400 mb-10 leading-relaxed">
-                في سكانور ستور، نؤمن بمكافأة عملائنا الأوفياء. شارك كود الإحالة الخاص بك مع أصدقائك، وعند قيامهم بأول عملية شحن، ستحصل كلاهما على نقاط إضافية وخصومات حصرية.
-              </p>
-              
-              <div className="p-6 bg-neutral-950 rounded-3xl border border-neutral-800 flex flex-col md:flex-row items-center gap-4">
-                <div className="flex-1 w-full">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 block mb-2">كود الإحالة الخاص بك</label>
-                  <div className="bg-neutral-900 border border-neutral-800 px-6 py-4 rounded-2xl font-mono text-xl text-amber-500 tracking-wider flex justify-between items-center group">
-                    SCANOR-PRO-2026
-                    <button className="text-[10px] bg-neutral-800 text-neutral-400 px-3 py-1 rounded-lg hover:bg-amber-500 hover:text-black transition-colors uppercase font-black">Copy</button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div 
-               initial={{ opacity: 0, scale: 0.9 }}
-               whileInView={{ opacity: 1, scale: 1 }}
-               viewport={{ once: true }}
-               className="relative"
-            >
-              <div className="aspect-square max-w-[450px] mx-auto bg-neutral-950 border border-neutral-800 rounded-[3rem] p-4 relative overflow-hidden group">
-                 {/* Mock Lucky Wheel */}
-                 <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-[80%] h-[80%] rounded-full border-8 border-neutral-800 relative animate-[spin_20s_linear_infinite] group-hover:pause">
-                       {[...Array(8)].map((_, i) => (
-                         <div 
-                           key={i} 
-                           className="absolute top-1/2 left-1/2 w-full h-1 bg-neutral-800 origin-left" 
-                           style={{ transform: `rotate(${i * 45}deg)` }} 
-                         />
-                       ))}
-                       <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-12 h-12 bg-amber-500 rounded-full shadow-[0_0_20px_rgba(245,158,11,0.5)] z-10" />
-                       </div>
-                    </div>
-                 </div>
-                 <div className="absolute inset-x-0 bottom-12 text-center">
-                    <button className="bg-amber-500 text-black px-10 py-4 rounded-full font-black text-lg shadow-[0_10px_30px_rgba(245,158,11,0.3)] hover:scale-105 transition-transform">
-                       جرب حظك الآن
-                    </button>
-                    <p className="mt-4 text-xs text-neutral-500">متاح لخطط VIP والطلبات فوق 50 SAR</p>
-                 </div>
-              </div>
-              <div className="absolute -top-6 -right-6 w-24 h-24 bg-amber-500 rounded-2xl flex items-center justify-center -rotate-12 shadow-2xl animate-bounce">
-                <Trophy className="w-12 h-12 text-black" />
-              </div>
-            </motion.div>
-          </div>
         </div>
       </section>
 
@@ -596,7 +474,7 @@ export default function Home() {
                 <div className="flex justify-between items-center font-black text-2xl">
                   <span className="text-neutral-400">الإجمالي</span>
                   <span className="text-amber-500 tracking-tight">
-                    {currency === 'SDG' ? selectedPackage.price_sdg.toLocaleString() : (currency === 'USD' ? (selectedPackage.price_sar * 0.27).toFixed(2) : selectedPackage.price_sar.toFixed(2))} {getSymbol()}
+                    {currency === 'SDG' ? selectedPackage.price_sdg.toLocaleString() : selectedPackage.price_sar.toFixed(2)} {getSymbol()}
                   </span>
                 </div>
               </div>
