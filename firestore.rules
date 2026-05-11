@@ -110,5 +110,23 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+
+    // ---------------------------------------------------------
+    // STATS COLLECTION
+    // ---------------------------------------------------------
+    function isValidStats(data) {
+      return data.wins is int &&
+             data.totalGames is int &&
+             data.currentStreak is int &&
+             data.longestStreak is int &&
+             data.keys().hasAll(['wins', 'totalGames', 'currentStreak', 'longestStreak']) &&
+             data.keys().size() == 4;
+    }
+
+    match /stats/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidStats(incoming());
+      allow update: if isOwner(userId) && isValidStats(incoming());
+    }
   }
 }

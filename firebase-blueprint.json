@@ -43,6 +43,19 @@
         "createdAt": { "type": "string", "format": "date-time" }
       }
     },
+    "UserStats": {
+      "title": "User Statistics",
+      "description": "Historical performance data for a player.",
+      "type": "object",
+      "properties": {
+        "wins": { "type": "integer" },
+        "totalGames": { "type": "integer" },
+        "currentStreak": { "type": "integer" },
+        "longestStreak": { "type": "integer" },
+        "lastPlayed": { "type": "string", "format": "date-time" }
+      },
+      "required": ["wins", "totalGames", "currentStreak", "longestStreak"]
+    },
     "Order": {
       "title": "Order",
       "description": "Customer orders for packages",
@@ -83,6 +96,10 @@
     "activities/{activityId}": {
       "schema": "Activity",
       "description": "User account activity log"
+    },
+    "stats/{userId}": {
+      "schema": "UserStats",
+      "description": "Stores performance stats tied to a Google account ID."
     }
   }
 }

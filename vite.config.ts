@@ -15,11 +15,11 @@ export default defineConfig(({mode}) => {
         injectRegister: 'auto',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
-          name: 'متجر سكانور',
-          short_name: 'سكانور',
-          description: 'متجر سكانور لشحن شدات ببجي موبايل بشكل آمن وسريع',
-          theme_color: '#f59e0b',
-          background_color: '#000000',
+          name: 'وست سودانية - Sudanese Whist',
+          short_name: 'وست سودانية',
+          description: 'لعبة الوست السودانية التقليدية. تحدى أصدقاءك في هذه اللعبة الرباعية المثيرة.',
+          theme_color: '#064e3b',
+          background_color: '#020617',
           display: 'standalone',
           start_url: '/',
           id: '/',
@@ -50,27 +50,27 @@ export default defineConfig(({mode}) => {
           ],
           shortcuts: [
             {
-              name: 'تتبع الطلب',
-              short_name: 'تتبع',
-              description: 'متابعة حالة طلبك',
-              url: '/track',
-              icons: [{ src: 'https://cdn-icons-png.flaticon.com/512/2649/2649297.png', sizes: '512x512', type: 'image/png' }]
+              name: 'بدء اللعب',
+              short_name: 'العب',
+              description: 'ابدأ مباراة وست جديدة',
+              url: '/',
+              icons: [{ src: 'https://cdn-icons-png.flaticon.com/512/8002/8002123.png', sizes: '512x512', type: 'image/png' }]
             }
           ],
           screenshots: [
             {
-              src: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1080&h=1920&auto=format&fit=crop',
+              src: 'https://images.unsplash.com/photo-1529480351022-ad0110834372?q=80&w=1080&h=1920&auto=format&fit=crop',
               sizes: '1080x1920',
               type: 'image/jpeg',
               form_factor: 'narrow',
-              label: 'Scanor Store Mobile'
+              label: 'Sudanese Whist Mobile'
             },
             {
-              src: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=1920&h=1080&auto=format&fit=crop',
+              src: 'https://images.unsplash.com/photo-1529480351022-ad0110834372?q=80&w=1920&h=1080&auto=format&fit=crop',
               sizes: '1920x1080',
               type: 'image/jpeg',
               form_factor: 'wide',
-              label: 'Scanor Store Desktop'
+              label: 'Sudanese Whist Desktop'
             }
           ],
         },
