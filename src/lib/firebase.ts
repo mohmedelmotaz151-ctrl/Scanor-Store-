@@ -3,6 +3,7 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup,
+  signInAnonymously,
   browserLocalPersistence,
   browserPopupRedirectResolver,
   initializeAuth
@@ -23,5 +24,10 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export const signInWithGoogle = async () => {
   const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
+};
+
+export const loginGuest = async () => {
+  const result = await signInAnonymously(auth);
   return result.user;
 };

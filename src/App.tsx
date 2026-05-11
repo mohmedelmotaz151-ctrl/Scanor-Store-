@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, RefreshCw, User, Cpu, Info, LogOut, PlayCircle, Zap, Star, TrendingUp, Home } from 'lucide-react';
-import { auth, signInWithGoogle, db } from './lib/firebase';
+import { auth, signInWithGoogle, db, loginGuest } from './lib/firebase';
 import { onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Chessboard } from 'react-chessboard';
@@ -109,6 +109,50 @@ const createDeck = (): Card[] => {
 function ChessGame({ onBack }: { onBack: () => void }) {
   const [game, setGame] = useState(new Chess());
   const [playerColor, setPlayerColor] = useState<"white" | "black">(() => Math.random() > 0.5 ? "white" : "black");
+  const [optionSquares, setOptionSquares] = useState({});
+
+  function getMoveOptions(square: string) {
+    const moves = game.moves({
+      square: square as any,
+      verbose: true,
+    });
+    if (moves.length === 0) {
+      setOptionSquares({});
+      return false;
+    }
+
+    const newSquares: any = {};
+    moves.map((move) => {
+      newSquares[move.to] = {
+        background:
+          game.get(move.to as any) && game.get(move.to as any).color !== game.get(square as any).color
+            ? "radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)"
+            : "radial-gradient(circle, rgba(0,0,0,.1) 25%, transparent 25%)",
+        borderRadius: "50%",
+      };
+      return move;
+    });
+    newSquares[square] = {
+      background: "rgba(255, 255, 0, 0.4)",
+    };
+    setOptionSquares(newSquares);
+    return true;
+  }
+
+  function onSquareClick() {
+    setOptionSquares({});
+  }
+
+  function onPieceDragBegin(piece: string, sourceSquare: string) {
+    if ((playerColor === "white" && piece[0] === "b") || (playerColor === "black" && piece[0] === "w")) {
+       return;
+    }
+    getMoveOptions(sourceSquare);
+  }
+
+  function onPieceDragEnd() {
+    setOptionSquares({});
+  }
   const [moveFrom, setMoveFrom] = useState("");
   const [captured, setCaptured] = useState<{ white: string[]; black: string[] }>({ white: [], black: [] });
 
@@ -160,6 +204,7 @@ function ChessGame({ onBack }: { onBack: () => void }) {
   }
 
   function onDrop(sourceSquare: string, targetSquare: string) {
+    setOptionSquares({});
     if ((playerColor === "white" && game.turn() === "b") || (playerColor === "black" && game.turn() === "w")) {
       return false;
     }
@@ -233,9 +278,14 @@ function ChessGame({ onBack }: { onBack: () => void }) {
           <div className="aspect-square max-w-[600px] mx-auto shadow-2xl rounded-2xl overflow-hidden border-8 border-slate-800 relative">
             <Chessboard 
               {...({
+                id: "chessBoard",
                 position: game.fen(), 
                 onPieceDrop: onDrop,
+                onPieceDragBegin: onPieceDragBegin,
+                onPieceDragEnd: onPieceDragEnd,
+                onSquareClick: onSquareClick,
                 boardOrientation: playerColor,
+                customSquareStyles: optionSquares,
                 customDarkSquareStyle: { backgroundColor: "#1e293b" },
                 customLightSquareStyle: { backgroundColor: "#475569" },
                 animationDuration: 300
@@ -721,6 +771,44 @@ export default function App() {
     }
   };
 
+  const handleGuestSignIn = async () => {
+    if (isLoggingIn) return;
+    setIsLoggingIn(true);
+    setLoginError(null);
+    try {
+      await loginGuest();
+    } catch (error: any) {
+      console.error("Guest sign in failed:", error);
+      if (error?.code === 'auth/admin-restricted-operation' || error?.message?.includes('admin-restricted-operation')) {
+        // Fallback to local guest mode if Firebase Anonymous Auth is disabled
+        const mockGuest = {
+          uid: `guest_${Math.random().toString(36).substr(2, 9)}`,
+          displayName: "زائر",
+          isAnonymous: true,
+          photoURL: null,
+          email: null
+        };
+        
+        // Use local storage to persist guest session if needed, but for now just set state
+        setUser(mockGuest as any);
+        setPlayers(prev => {
+          if (prev.length === 0) return prev;
+          return [
+            { ...prev[0], name: "زائر" },
+            ...prev.slice(1)
+          ];
+        });
+        // Clear error and inform user of the alternative
+        setLoginError(null); 
+        console.info("Using Local Guest Mode. Enable Anonymous Auth in Firebase Console for persistent guest IDs.");
+      } else {
+        setLoginError("فشل تسجيل الدخول كزائر. تأكد من اتصالك بالإنترنت.");
+      }
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4" dir="rtl">
@@ -746,18 +834,29 @@ export default function App() {
             </div>
           )}
 
-          <button 
-            onClick={handleSignIn}
-            disabled={isLoggingIn}
-            className={`w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-5 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-4 group active:scale-95 ${isLoggingIn ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {isLoggingIn ? (
-              <RefreshCw className="w-6 h-6 animate-spin text-slate-900" />
-            ) : (
-              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-6 h-6 grayscale group-hover:grayscale-0 transition-all" />
-            )}
-            {isLoggingIn ? 'جاري تسجيل الدخول...' : 'الدخول عبر Google'}
-          </button>
+          <div className="flex flex-col gap-4">
+            <button 
+              onClick={handleSignIn}
+              disabled={isLoggingIn}
+              className={`w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-5 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-4 group active:scale-95 ${isLoggingIn ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isLoggingIn ? (
+                <RefreshCw className="w-6 h-6 animate-spin text-slate-900" />
+              ) : (
+                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-6 h-6 grayscale group-hover:grayscale-0 transition-all" />
+              )}
+              {isLoggingIn ? 'جاري تسجيل الدخول...' : 'الدخول عبر Google'}
+            </button>
+
+            <button 
+              onClick={handleGuestSignIn}
+              disabled={isLoggingIn}
+              className={`w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-5 rounded-2xl transition-all shadow-xl flex items-center justify-center gap-4 group active:scale-95 ${isLoggingIn ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <User className="w-6 h-6 text-slate-400 group-hover:text-white transition-all" />
+              دخول كزائر
+            </button>
+          </div>
         </motion.div>
       </div>
     );
