@@ -149,6 +149,7 @@ export const Home = () => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'x-internal-secret': import.meta.env.VITE_APP_INTERNAL_SECRET || ''
             },
             body: JSON.stringify({
               ...orderSummary,

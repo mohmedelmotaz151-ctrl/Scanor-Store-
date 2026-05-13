@@ -4,6 +4,9 @@ import path from "path";
 import fs from "fs";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import nodemailer from "nodemailer";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
 
 const __dirname = process.cwd();
 const DB_FILE = path.join(__dirname, "db.json");
@@ -102,8 +105,40 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.set('trust proxy', true);
+  // Security Middlewares
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable for easier dev/applet integration
+  }));
+  app.use(cors());
+  app.set('trust proxy', 1);
   app.use(express.json({ limit: '10mb' }));
+
+  // Rate Limiting
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: { error: "Too many requests, please try again later." },
+    validate: { trustProxy: false }
+  });
+
+  app.use(generalLimiter);
+
+  const chatLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 10, // Limit each IP to 10 chat requests per minute
+    message: { error: "هدئ من روعك! الكثير من الرسائل حالياً." },
+    validate: { trustProxy: false }
+  });
+
+  const paymentLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: 5, // Limit each IP to 5 payment attempts per 5 minutes
+    message: { error: "محاولات دفع كثيرة. يرجى الانتظار قليلاً." },
+    validate: { trustProxy: false }
+  });
+
+  // Validation Helper
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   // --- API Routes ---
   app.get("/api/health", (req, res) => {
@@ -111,9 +146,11 @@ async function startServer() {
   });
 
   // AI Support Chat
-  app.post("/api/support/chat", async (req, res) => {
+  app.post("/api/support/chat", chatLimiter, async (req, res) => {
     const { message, history } = req.body;
-    if (!message) return res.status(400).json({ error: "Message is required" });
+    if (!message || message.length > 500) {
+      return res.status(400).json({ error: "الرسالة غير صالحة أو طويلة جداً" });
+    }
 
     try {
       const chat = model.startChat({
@@ -129,10 +166,19 @@ async function startServer() {
     }
   });
 
-  // Order Notification
+  // Order Notification (Protected)
   app.post("/api/notify-order", async (req, res) => {
     const order = req.body;
-    if (!order) return res.status(400).json({ error: "Order details required" });
+    const internalSecret = req.headers['x-internal-secret'];
+    
+    // Simple protection for internal notification endpoint
+    if (process.env.APP_INTERNAL_SECRET && internalSecret !== process.env.APP_INTERNAL_SECRET) {
+      return res.status(401).json({ error: "Unauthorized access" });
+    }
+
+    if (!order || !order.playerId || !order.amount) {
+      return res.status(400).json({ error: "Order details incomplete" });
+    }
 
     try {
       await sendOrderNotification(order);
@@ -144,10 +190,29 @@ async function startServer() {
   });
 
   // Fatora Payment Integration
-  app.post("/api/payment/fatora", async (req, res) => {
+  app.post("/api/payment/fatora", paymentLimiter, async (req, res) => {
     const { amount, currency, orderId, email, name, phone } = req.body;
-    // Prefer environment variable, fallback to default provided
-    const apiKey = process.env.FATORA_API_KEY || "950b86e0-2490-416b-9b6f-78f37334b813";
+
+    // Basic Validation
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: "المبلغ غير صحيح" });
+    }
+    if (email && !isValidEmail(email)) {
+      return res.status(400).json({ error: "البريد الإلكتروني غير صحيح" });
+    }
+    if (!orderId) {
+      return res.status(400).json({ error: "رقم الطلب مطلوب" });
+    }
+    
+    // Security: Only use environment variable, fail if missing
+    const apiKey = process.env.FATORA_API_KEY;
+
+    if (!apiKey) {
+      console.error("CRITICAL: FATORA_API_KEY is missing from environment variables");
+      return res.status(500).json({ 
+        error: "إعدادات بوابة الدفع (API Key) غير مكتملة في الخادم. يرجى التواصل مع الإدارة." 
+      });
+    }
 
     // Detect protocol and host properly
     const forwardedProto = req.get('x-forwarded-proto');
