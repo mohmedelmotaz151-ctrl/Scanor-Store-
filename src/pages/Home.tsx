@@ -24,12 +24,12 @@ interface Package {
 }
 
 const PACKAGES: Package[] = [
-  { id: 'uc-60', amount: 60, bonus: 0, price_sar: 4.5, price_sdg: 1500 },
-  { id: 'uc-325', amount: 325, bonus: 25, price_sar: 18.5, price_sdg: 6500 },
-  { id: 'uc-660', amount: 660, bonus: 60, price_sar: 37, price_sdg: 13500 },
-  { id: 'uc-1800', amount: 1800, bonus: 200, price_sar: 92, price_sdg: 33000 },
-  { id: 'uc-3850', amount: 3850, bonus: 450, price_sar: 185, price_sdg: 66000 },
-  { id: 'uc-8100', amount: 8100, bonus: 1000, price_sar: 375, price_sdg: 135000 },
+  { id: 'uc-60', amount: 60, bonus: 0, price_sar: 4.5, price_sdg: 4500 },
+  { id: 'uc-325', amount: 325, bonus: 25, price_sar: 18.5, price_sdg: 17000 },
+  { id: 'uc-660', amount: 660, bonus: 60, price_sar: 37, price_sdg: 35000 },
+  { id: 'uc-1800', amount: 1800, bonus: 200, price_sar: 92, price_sdg: 89000 },
+  { id: 'uc-3850', amount: 3850, bonus: 450, price_sar: 185, price_sdg: 179000 },
+  { id: 'uc-8100', amount: 8100, bonus: 1000, price_sar: 375, price_sdg: 350000 },
 ];
 
 export const Home = () => {
@@ -42,6 +42,14 @@ export const Home = () => {
     phone: '',
     paymentMethod: 'al_rajhi' as 'al_rajhi' | 'bok'
   });
+
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      paymentMethod: currency === 'SDG' ? 'bok' : 'al_rajhi'
+    }));
+  }, [currency]);
+
   const [receipt, setReceipt] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<any>(null);
@@ -149,17 +157,19 @@ export const Home = () => {
             <h2 className="text-3xl font-bold mb-2 uppercase tracking-tight text-right w-full">باقات الشدات المتاحة</h2>
             <p className="text-neutral-500 text-right w-full">أفضل العروض والأسعار المحدثة دورياً</p>
           </div>
-          <div className="flex bg-neutral-900 p-1 rounded-2xl border border-neutral-800" dir="ltr">
+          <div className="flex bg-neutral-900 p-2 rounded-3xl border border-neutral-800 gap-2" dir="ltr">
             <button 
               onClick={() => setCurrency('SAR')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SAR' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
+              className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-lg font-black transition-all ${currency === 'SAR' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20 scale-105' : 'text-neutral-500 hover:text-white'}`}
             >
+              <span className="text-2xl">🇸🇦</span>
               ر.س
             </button>
             <button 
               onClick={() => setCurrency('SDG')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${currency === 'SDG' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' : 'text-neutral-500 hover:text-white'}`}
+              className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-lg font-black transition-all ${currency === 'SDG' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20 scale-105' : 'text-neutral-500 hover:text-white'}`}
             >
+              <span className="text-2xl">🇸🇩</span>
               ج.س
             </button>
           </div>
@@ -277,19 +287,12 @@ export const Home = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">وسيلة الدفع</label>
-                      <div className="grid grid-cols-2 gap-3" dir="ltr">
-                        <button 
-                          type="button"
-                          onClick={() => setFormData({ ...formData, paymentMethod: currency === 'SDG' ? 'bok' : 'al_rajhi' })}
-                          className={`p-4 rounded-2xl border text-sm font-bold transition-all ${
-                            (formData.paymentMethod === 'bok' || formData.paymentMethod === 'al_rajhi') 
-                              ? 'bg-amber-500 border-amber-500 text-black' 
-                              : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-600'
-                          }`}
-                        >
-                          {currency === 'SDG' ? 'بنك الخرطوم' : 'بنك الراجحي'}
-                        </button>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">جهة التحويل</label>
+                      <div className="flex bg-neutral-950 p-1 rounded-2xl border border-neutral-800" dir="rtl">
+                        <div className="w-full py-4 text-center text-amber-500 font-black flex items-center justify-center gap-3">
+                          <CheckCircle2 className="w-5 h-5" />
+                          {currency === 'SDG' ? 'بنك الخرطوم' : 'مصرف الراجحي'}
+                        </div>
                       </div>
                     </div>
 
@@ -307,7 +310,7 @@ export const Home = () => {
                           </div>
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-neutral-500">الاسم:</span>
-                            <span className="font-bold">محمد المعتز</span>
+                            <span className="font-bold">Mohmed Elmotaz</span>
                           </div>
                         </>
                       ) : (
@@ -319,6 +322,10 @@ export const Home = () => {
                           <div className="flex flex-col gap-1 text-sm">
                             <span className="text-neutral-500">الآيبان (IBAN):</span>
                             <span className="font-mono text-xs text-white font-bold break-all">SA67 8000 0644 6080 1761 8978</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm pt-2">
+                            <span className="text-neutral-500">الاسم:</span>
+                            <span className="font-bold">محمد المعتز عابدين</span>
                           </div>
                         </>
                       )}

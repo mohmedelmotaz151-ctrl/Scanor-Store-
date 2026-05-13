@@ -11,19 +11,18 @@ import {
 } from 'lucide-react';
 import { auth, db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { useAuth } from '../context/AuthContext';
 
 export const Navbar = () => {
-  const [user, setUser] = useState<any>(null);
+  const { user, logout } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+    async function checkAdmin() {
+      if (user) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists() && userDoc.data().isAdmin) {
           setIsAdmin(true);
         } else {
@@ -32,12 +31,12 @@ export const Navbar = () => {
       } else {
         setIsAdmin(false);
       }
-    });
-    return () => unsubscribe();
-  }, []);
+    }
+    checkAdmin();
+  }, [user]);
 
   const handleLogout = async () => {
-    await signOut(auth);
+    await logout();
     navigate('/');
   };
 
