@@ -14,13 +14,13 @@ const DB_FILE = path.join(__dirname, "db.json");
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ 
   model: "gemini-1.5-flash",
-  systemInstruction: "أنت خبير في لعبة الوست السودانية. تساعد اللاعبين في فهم قوانين اللعبة، شرح معنى 'تبويش'، 'جلد'، و'أتو'. أنت تتحدث باللهجة السودانية المحببة والودودة. إذا سألك أحد عن اللعبة، شجعه بمصطلحات سودانية مثل 'يا باشا' و'حريف'. أنت تعطي نصائح احترافية مثل 'سحب الحكم بدري' و'المحافظة على الآسات'."
+  systemInstruction: "أنت مساعد الدعم الفني لمتجر سكانور (Scanor Store). المتجر متخصص في شحن شدات ببجي موبايل (UC). أنت تتحدث باللهجة السعودية أو السودانية حسب لهجة العميل، بأسلوب مهذب واحترافي. قدم المساعدة بخصوص طرق الدفع (بنك الراجحي، بنك الخرطوم)، وكيفية العثور على Player ID، وتتبع الطلبات. أسعارنا منافسة جداً (أرباح المتجر 2% فقط). التوصيل فوري وتلقائي."
 });
 
 // Initialize dummy DB
 if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify({
-    stats: [],
+    orders: [],
     support_chats: []
   }, null, 2));
 }
@@ -41,7 +41,7 @@ async function startServer() {
 
   // --- API Routes ---
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", game: "Sudanese Whist" });
+    res.json({ status: "ok", app: "Scanor Store" });
   });
 
   // AI Support Chat
