@@ -70,9 +70,9 @@ export const Login = () => {
   const syncUserToFirestore = async (user: any) => {
     const userRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userRef);
+    const isAdminEmail = user.email === 'mohmedelmotaz151@gmail.com';
     
     if (!userDoc.exists()) {
-      const isAdminEmail = user.email === 'mohmedelmotaz151@gmail.com';
       await setDoc(userRef, {
         uid: user.uid,
         email: user.email || '',
@@ -82,6 +82,9 @@ export const Login = () => {
         isAdmin: isAdminEmail,
         createdAt: serverTimestamp()
       });
+    } else if (isAdminEmail && !userDoc.data().isAdmin) {
+      // Ensure admin status is updated if it wasn't set before
+      await setDoc(userRef, { isAdmin: true }, { merge: true });
     }
   };
 

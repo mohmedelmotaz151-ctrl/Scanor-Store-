@@ -140,6 +140,45 @@ async function startServer() {
     }
   });
 
+  // Fatora Payment Integration
+  app.post("/api/payment/fatora", async (req, res) => {
+    const { amount, currency, orderId, email, name, phone } = req.body;
+    const apiKey = process.env.FATORA_API_KEY || "fc_9e7d6c460cab0118ddde0852";
+
+    try {
+      const response = await fetch("https://api.fatora.io/v1/payments/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api_key": apiKey
+        },
+        body: JSON.stringify({
+          amount: amount,
+          currency: currency,
+          order_id: orderId,
+          customer_name: name || "Customer",
+          customer_email: email,
+          customer_phone: phone,
+          success_url: `${req.protocol}://${req.get('host')}/track?id=${orderId}&payment=success`,
+          failure_url: `${req.protocol}://${req.get('host')}/track?id=${orderId}&payment=failed`,
+          cancel_url: `${req.protocol}://${req.get('host')}/track?id=${orderId}&payment=cancelled`,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        res.json({ checkout_url: data.result.checkout_url });
+      } else {
+        console.error("Fatora Error Data:", data);
+        res.status(400).json({ error: data.message || "فشل في إنشاء عملية الدفع" });
+      }
+    } catch (err) {
+      console.error("Fatora Exception:", err);
+      res.status(500).json({ error: "حدث خطأ أثناء الاتصال ببوابة الدفع" });
+    }
+  });
+
   // --- Vite / Static Handling ---
 
   if (process.env.NODE_ENV !== "production") {

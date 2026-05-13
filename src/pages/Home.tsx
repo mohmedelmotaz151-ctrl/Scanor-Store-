@@ -41,13 +41,13 @@ export const Home = () => {
     playerId: '',
     email: '',
     phone: '',
-    paymentMethod: 'al_rajhi' as 'al_rajhi' | 'bok'
+    paymentMethod: 'al_rajhi' as 'al_rajhi' | 'bok' | 'fatora'
   });
 
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
-      paymentMethod: currency === 'SDG' ? 'bok' : 'al_rajhi'
+      paymentMethod: currency === 'SDG' ? 'bok' : 'fatora'
     }));
   }, [currency]);
 
@@ -58,21 +58,30 @@ export const Home = () => {
 
   const handleOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPackage || !receipt || isSubmitting) return;
+    if (!selectedPackage || isSubmitting) return;
+
+    // Receipt is only required for manual bank transfers
+    const isManualPayment = formData.paymentMethod === 'al_rajhi' || formData.paymentMethod === 'bok';
+    if (isManualPayment && !receipt) {
+      alert('يرجى إرفاق صورة الإيصال للمتابعة');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      // Helper to convert file to base64 for notification
-      const fileToBase64 = (file: File): Promise<string> => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = error => reject(error);
-        });
-      };
-
-      const receiptBase64 = await fileToBase64(receipt);
+      let receiptBase64 = '';
+      if (receipt) {
+        // Helper to convert file to base64 for notification
+        const fileToBase64 = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = error => reject(error);
+          });
+        };
+        receiptBase64 = await fileToBase64(receipt);
+      }
 
       const orderData = {
         packageId: selectedPackage.id,
@@ -81,7 +90,7 @@ export const Home = () => {
         price: currency === 'SDG' ? selectedPackage.price_sdg : selectedPackage.price_sar,
         currency,
         ...formData,
-        status: 'pending_verification',
+        status: formData.paymentMethod === 'fatora' ? 'pending_payment' : 'pending_verification',
         createdAt: serverTimestamp(),
         userId: auth.currentUser?.uid || 'guest'
       };
@@ -96,9 +105,40 @@ export const Home = () => {
       
       if (docRef) {
         const orderSummary = { id: docRef.id, ...orderData };
+
+        if (formData.paymentMethod === 'fatora') {
+          // Automatic Payment Flow
+          try {
+            const payRes = await fetch('/api/payment/fatora', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                amount: orderSummary.price,
+                currency: orderSummary.currency,
+                orderId: docRef.id,
+                email: formData.email,
+                name: auth.currentUser?.displayName || 'Customer',
+                phone: formData.phone
+              })
+            });
+            const payData = await payRes.json();
+            if (payData.checkout_url) {
+              window.location.href = payData.checkout_url;
+              return; // Halt execution as we are redirecting
+            } else {
+              throw new Error(payData.error || 'Failed to create payment');
+            }
+          } catch (payErr: any) {
+            console.error('Payment linking error:', payErr);
+            alert('فشل في بدء عملية الدفع الإلكتروني: ' + payErr.message);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        
         setOrderSuccess(orderSummary);
         
-        // Send email notification via backend WITH receipt image
+        // Send email notification via backend
         try {
           await fetch('/api/notify-order', {
             method: 'POST',
@@ -112,7 +152,6 @@ export const Home = () => {
           });
         } catch (notifyErr) {
           console.error('Failed to send notification:', notifyErr);
-          // Don't fail the order if notification fails
         }
       }
     } catch (error: any) {
@@ -330,78 +369,122 @@ export const Home = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">جهة التحويل</label>
-                      <div className="flex bg-neutral-950 p-1 rounded-2xl border border-neutral-800" dir="rtl">
-                        <div className="w-full py-4 text-center text-amber-500 font-black flex items-center justify-center gap-3">
-                          <CheckCircle2 className="w-5 h-5" />
-                          {currency === 'SDG' ? 'بنك الخرطوم' : 'مصرف الراجحي'}
-                        </div>
+                      <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-4 px-2">طريقة الدفع</label>
+                      <div className="grid grid-cols-1 gap-3">
+                        {currency === 'SAR' && (
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, paymentMethod: 'fatora' })}
+                            className={`flex items-center justify-between p-5 rounded-3xl border ${formData.paymentMethod === 'fatora' ? 'bg-amber-500 text-black border-amber-500' : 'bg-neutral-950 border-neutral-800 text-white'} transition-all`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <ShieldCheck className="w-6 h-6" />
+                              <div className="text-right">
+                                <p className="font-bold">دفع إلكتروني آمن</p>
+                                <p className={`text-[10px] ${formData.paymentMethod === 'fatora' ? 'text-black/60' : 'text-neutral-500'}`}>مدى، أبل باي، فيزا، ماستر كارد</p>
+                              </div>
+                            </div>
+                            <CheckCircle2 className={`w-6 h-6 ${formData.paymentMethod === 'fatora' ? 'opacity-100' : 'opacity-0'}`} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, paymentMethod: currency === 'SDG' ? 'bok' : 'al_rajhi' })}
+                          className={`flex items-center justify-between p-5 rounded-3xl border ${formData.paymentMethod !== 'fatora' ? 'bg-amber-500 text-black border-amber-500' : 'bg-neutral-950 border-neutral-800 text-white'} transition-all`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Wallet className="w-6 h-6" />
+                            <div className="text-right">
+                              <p className="font-bold">{currency === 'SDG' ? 'بنك الخرطوم (نطبيق بنكك)' : 'تحويل بنكي (الراجحي)'}</p>
+                              <p className={`text-[10px] ${formData.paymentMethod !== 'fatora' ? 'text-black/60' : 'text-neutral-500'}`}>تحويل يدوي وإرفاق الإيصال</p>
+                            </div>
+                          </div>
+                          <CheckCircle2 className={`w-6 h-6 ${formData.paymentMethod !== 'fatora' ? 'opacity-100' : 'opacity-0'}`} />
+                        </button>
                       </div>
                     </div>
 
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      className="mt-4 p-6 bg-neutral-950 border border-neutral-800 rounded-3xl space-y-4"
-                    >
-                      <h4 className="text-amber-500 font-bold text-sm mb-2 border-b border-neutral-800 pb-2">بيانات التحويل</h4>
-                      {formData.paymentMethod === 'bok' ? (
-                        <>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-neutral-500">رقم الحساب:</span>
-                            <span className="font-mono text-amber-500 font-bold">9800579</span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="text-neutral-500">الاسم:</span>
-                            <span className="font-bold">Mohmed Elmotaz</span>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex flex-col gap-1 text-sm">
-                            <span className="text-neutral-500">رقم الحساب:</span>
-                            <span className="font-mono text-white font-bold break-all">644000010006087618978</span>
-                          </div>
-                          <div className="flex flex-col gap-1 text-sm">
-                            <span className="text-neutral-500">الآيبان (IBAN):</span>
-                            <span className="font-mono text-xs text-white font-bold break-all">SA67 8000 0644 6080 1761 8978</span>
-                          </div>
-                          <div className="flex justify-between items-center text-sm pt-2">
-                            <span className="text-neutral-500">الاسم:</span>
-                            <span className="font-bold">محمد المعتز عابدين</span>
-                          </div>
-                        </>
-                      )}
+                    <AnimatePresence mode="wait">
+                      {formData.paymentMethod !== 'fatora' ? (
+                        <motion.div 
+                          key="manual-payment"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-4 p-6 bg-neutral-950 border border-neutral-800 rounded-3xl space-y-4"
+                        >
+                          <h4 className="text-amber-500 font-bold text-sm mb-2 border-b border-neutral-800 pb-2">بيانات التحويل</h4>
+                          {formData.paymentMethod === 'bok' ? (
+                            <>
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-neutral-500">رقم الحساب:</span>
+                                <span className="font-mono text-amber-500 font-bold">9800579</span>
+                              </div>
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="text-neutral-500">الاسم:</span>
+                                <span className="font-bold">Mohmed Elmotaz</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex flex-col gap-1 text-sm">
+                                <span className="text-neutral-500">رقم الحساب:</span>
+                                <span className="font-mono text-white font-bold break-all">644000010006087618978</span>
+                              </div>
+                              <div className="flex flex-col gap-1 text-sm">
+                                <span className="text-neutral-500">الآيبان (IBAN):</span>
+                                <span className="font-mono text-xs text-white font-bold break-all">SA67 8000 0644 6080 1761 8978</span>
+                              </div>
+                              <div className="flex justify-between items-center text-sm pt-2">
+                                <span className="text-neutral-500">الاسم:</span>
+                                <span className="font-bold">محمد المعتز عابدين</span>
+                              </div>
+                            </>
+                          )}
 
-                      <div className="pt-4 border-t border-neutral-800">
-                        <label className="block text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">ارفع صورة الإيصال بعد التحويل</label>
-                        <div className="relative group">
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            required
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            onChange={(e) => setReceipt(e.target.files ? e.target.files[0] : null)}
-                          />
-                          <div className={`w-full border-2 border-dashed ${
-                            receipt ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-neutral-800 bg-neutral-900 group-hover:border-neutral-700'
-                          } rounded-2xl py-6 flex flex-col items-center justify-center transition-all`}>
-                            {receipt ? (
-                              <>
-                                <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
-                                <span className="text-sm font-bold text-emerald-500">تم اختيار الإيصال ✓</span>
-                                <span className="text-[10px] text-neutral-500 mt-1">{receipt.name}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="w-8 h-8 text-neutral-600 mb-2 group-hover:text-neutral-400 transition-colors" />
-                                <span className="text-xs font-bold text-neutral-500">اختر صورة الإيصال</span>
-                              </>
-                            )}
+                          <div className="pt-4 border-t border-neutral-800">
+                            <label className="block text-xs font-black uppercase tracking-widest text-neutral-500 mb-3">ارفع صورة الإيصال بعد التحويل</label>
+                            <div className="relative group">
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                required
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                onChange={(e) => setReceipt(e.target.files ? e.target.files[0] : null)}
+                              />
+                              <div className={`w-full border-2 border-dashed ${
+                                receipt ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-neutral-800 bg-neutral-900 group-hover:border-neutral-700'
+                              } rounded-2xl py-6 flex flex-col items-center justify-center transition-all`}>
+                                {receipt ? (
+                                  <>
+                                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
+                                    <span className="text-sm font-bold text-emerald-500">تم اختيار الإيصال ✓</span>
+                                    <span className="text-[10px] text-neutral-500 mt-1">{receipt?.name}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="w-8 h-8 text-neutral-600 mb-2 group-hover:text-neutral-400 transition-colors" />
+                                    <span className="text-xs font-bold text-neutral-500">اختر صورة الإيصال</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </motion.div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="electronic-payment"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="mt-4 p-6 bg-amber-500/5 border border-amber-500/20 rounded-3xl text-center"
+                        >
+                          <ShieldCheck className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                          <h4 className="text-amber-500 font-bold mb-2">دفع إلكتروني فوري</h4>
+                          <p className="text-sm text-neutral-400">سيتم توجيهك إلى صفحة الدفع الآمنة فور إتمام الطلب ليتم الشحن تلقائياً.</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </form>
                 ) : (
                   <div className="space-y-8 text-right pb-4">
@@ -434,10 +517,13 @@ export const Home = () => {
                   <button 
                     form="checkout-form"
                     type="submit"
-                    disabled={isSubmitting || formData.playerId.length < 5 || !receipt}
+                    disabled={isSubmitting || formData.playerId.length < 5 || (formData.paymentMethod !== 'fatora' && !receipt)}
                     className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30px_rgba(245,158,11,0.2)] disabled:opacity-50 disabled:grayscale"
                   >
-                    {formData.playerId.length >= 5 ? (receipt ? 'تم التحويل ✓ إرسال الطلب' : 'ارفق الإيصال للمتابعة') : 'أدخل معرف صحيح للمتابعة'}
+                    {formData.playerId.length >= 5 ? 
+                      (formData.paymentMethod === 'fatora' ? 'المتابعة للدفع الآمن' : 
+                        (receipt ? 'تم التحويل ✓ إرسال الطلب' : 'ارفق الإيصال للمتابعة')) 
+                      : 'أدخل معرف صحيح للمتابعة'}
                   </button>
                 ) : (
                   <div className="flex flex-col gap-3">

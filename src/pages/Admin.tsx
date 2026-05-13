@@ -175,16 +175,27 @@ export const Admin = () => {
                     <StatusBadge status={order.status} />
                   </td>
                   <td className="px-8 py-6 text-left">
-                    <select 
-                      className="bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-1 text-xs text-white focus:outline-none focus:border-amber-500"
-                      value={order.status}
-                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                    >
-                      <option value="pending_verification">بانتظار التأكيد</option>
-                      <option value="processing">جاري الشحن</option>
-                      <option value="completed">مكتمل</option>
-                      <option value="failed">فشل</option>
-                    </select>
+                    <div className="flex items-center gap-4 justify-end">
+                      {order.receiptImage && (
+                        <button 
+                          onClick={() => window.open(order.receiptImage, '_blank')}
+                          className="bg-neutral-800 p-2 rounded-lg text-amber-500 hover:bg-neutral-700 transition-colors"
+                          title="عرض الإيصال"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      )}
+                      <select 
+                        className="bg-neutral-950 border border-neutral-800 rounded-lg px-3 py-1 text-xs text-white focus:outline-none focus:border-amber-500"
+                        value={order.status}
+                        onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                      >
+                        <option value="pending_verification">بانتظار التأكيد</option>
+                        <option value="processing">جاري الشحن</option>
+                        <option value="completed">مكتمل</option>
+                        <option value="failed">فشل</option>
+                      </select>
+                    </div>
                   </td>
                 </tr>
               ))}
