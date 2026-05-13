@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { db, auth } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
 interface Package {
   id: string;
@@ -61,9 +62,18 @@ export const Home = () => {
 
     setIsSubmitting(true);
     try {
-      // In a real app, you would upload the receipt to Firebase Storage first.
-      // For this prototype, we'll just simulate a successful order.
-      
+      // Helper to convert file to base64 for notification
+      const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = error => reject(error);
+        });
+      };
+
+      const receiptBase64 = await fileToBase64(receipt);
+
       const orderData = {
         packageId: selectedPackage.id,
         amount: selectedPackage.amount,
@@ -76,11 +86,44 @@ export const Home = () => {
         userId: auth.currentUser?.uid || 'guest'
       };
 
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      setOrderSuccess({ id: docRef.id, ...orderData });
-    } catch (error) {
+      const path = 'orders';
+      let docRef;
+      try {
+        docRef = await addDoc(collection(db, path), orderData);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.CREATE, path);
+      }
+      
+      if (docRef) {
+        const orderSummary = { id: docRef.id, ...orderData };
+        setOrderSuccess(orderSummary);
+        
+        // Send email notification via backend WITH receipt image
+        try {
+          await fetch('/api/notify-order', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...orderSummary,
+              receiptImage: receiptBase64
+            }),
+          });
+        } catch (notifyErr) {
+          console.error('Failed to send notification:', notifyErr);
+          // Don't fail the order if notification fails
+        }
+      }
+    } catch (error: any) {
       console.error('Order error:', error);
-      alert('فشل في إرسال طلب الشحن');
+      try {
+        const errObj = JSON.parse(error.message);
+        console.error('Detailed error:', errObj);
+      } catch {
+        // Not a JSON error
+      }
+      alert('فشل في إرسال طلب الشحن. يرجى المحاولة مرة أخرى.');
     } finally {
       setIsSubmitting(false);
     }
@@ -160,16 +203,16 @@ export const Home = () => {
           <div className="flex bg-neutral-900 p-2 rounded-3xl border border-neutral-800 gap-2" dir="ltr">
             <button 
               onClick={() => setCurrency('SAR')}
-              className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-lg font-black transition-all ${currency === 'SAR' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20 scale-105' : 'text-neutral-500 hover:text-white'}`}
+              className={`flex items-center gap-4 px-8 py-6 rounded-3xl text-2xl font-black transition-all ${currency === 'SAR' ? 'bg-amber-500 text-black shadow-2xl shadow-amber-500/40 scale-110 z-10' : 'text-neutral-500 hover:text-white opacity-80'}`}
             >
-              <span className="text-2xl">🇸🇦</span>
+              <span className="text-4xl">🇸🇦</span>
               ر.س
             </button>
             <button 
               onClick={() => setCurrency('SDG')}
-              className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-lg font-black transition-all ${currency === 'SDG' ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20 scale-105' : 'text-neutral-500 hover:text-white'}`}
+              className={`flex items-center gap-4 px-8 py-6 rounded-3xl text-2xl font-black transition-all ${currency === 'SDG' ? 'bg-amber-500 text-black shadow-2xl shadow-amber-500/40 scale-110 z-10' : 'text-neutral-500 hover:text-white opacity-80'}`}
             >
-              <span className="text-2xl">🇸🇩</span>
+              <span className="text-4xl">🇸🇩</span>
               ج.س
             </button>
           </div>

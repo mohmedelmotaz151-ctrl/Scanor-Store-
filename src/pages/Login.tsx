@@ -72,13 +72,14 @@ export const Login = () => {
     const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
+      const isAdminEmail = user.email === 'mohmedelmotaz151@gmail.com';
       await setDoc(userRef, {
         uid: user.uid,
         email: user.email || '',
         phoneNumber: user.phoneNumber || '',
         displayName: user.displayName || '',
         photoURL: user.photoURL || '',
-        isAdmin: false,
+        isAdmin: isAdminEmail,
         createdAt: serverTimestamp()
       });
     }

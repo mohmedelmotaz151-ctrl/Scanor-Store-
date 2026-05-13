@@ -92,23 +92,33 @@ service cloud.firestore {
     // ORDERS COLLECTION
     // ---------------------------------------------------------
     function isValidOrder(data) {
-      return data.playerId is string && data.playerId.size() <= 20 &&
+      return data.playerId is string && data.playerId.size() >= 5 && data.playerId.size() <= 50 &&
              data.status in ['pending_payment', 'pending_verification', 'processing', 'completed', 'failed'] &&
-             data.price is string &&
-             data.amount is int;
+             data.price is number && data.price > 0 &&
+             data.amount is number && data.amount > 0 &&
+             data.bonus is number &&
+             data.packageId is string &&
+             data.currency in ['SAR', 'SDG'] &&
+             data.paymentMethod in ['al_rajhi', 'bok'] &&
+             data.email is string && data.email.size() <= 100 &&
+             data.phone is string && data.phone.size() <= 20 &&
+             data.createdAt == request.time &&
+             data.userId is string &&
+             data.keys().hasAll(['playerId', 'status', 'price', 'amount', 'bonus', 'packageId', 'currency', 'paymentMethod', 'email', 'phone', 'createdAt', 'userId']) &&
+             data.keys().size() == 12;
     }
 
     match /orders/{orderId} {
-      allow read: if true; // Allow anyone to track by ID
+      allow read: if isValidId(orderId); // Allow anyone to track by valid ID
       allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
 
-      allow create: if (
+      allow create: if isValidId(orderId) && (
         (isSignedIn() && incoming().userId == request.auth.uid) || 
-        (incoming().userId == 'anonymous')
+        (incoming().userId == 'guest')
       ) && isValidOrder(incoming());
 
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow update: if isValidId(orderId) && isAdmin();
+      allow delete: if isValidId(orderId) && isAdmin();
     }
 
     // ---------------------------------------------------------
