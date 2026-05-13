@@ -92,33 +92,36 @@ service cloud.firestore {
     // ORDERS COLLECTION
     // ---------------------------------------------------------
     function isValidOrder(data) {
-      return data.playerId is string && data.playerId.size() >= 5 && data.playerId.size() <= 50 &&
-             data.status in ['pending_payment', 'pending_verification', 'processing', 'completed', 'failed'] &&
-             data.price is number && data.price > 0 &&
+      return data.playerId is string && data.playerId.size() >= 1 && data.playerId.size() <= 100 &&
+             (data.playerName is string || !data.keys().hasAll(['playerName'])) &&
+             data.status is string && data.status.size() <= 50 &&
+             data.price is number && data.price >= 0 &&
              data.amount is number && data.amount > 0 &&
-             data.bonus is number &&
-             data.packageId is string &&
-             data.currency in ['SAR', 'SDG'] &&
-             data.paymentMethod in ['al_rajhi', 'bok'] &&
-             data.email is string && data.email.size() <= 100 &&
-             data.phone is string && data.phone.size() <= 20 &&
+             (data.bonus is number || !data.keys().hasAll(['bonus'])) &&
+             data.packageId is string && data.packageId.size() <= 50 &&
+             data.currency is string && data.currency.size() <= 10 &&
+             data.paymentMethod is string && data.paymentMethod.size() <= 50 &&
+             data.email is string && data.email.size() <= 150 &&
+             data.phone is string && data.phone.size() <= 50 &&
              data.createdAt == request.time &&
-             data.userId is string &&
-             data.keys().hasAll(['playerId', 'status', 'price', 'amount', 'bonus', 'packageId', 'currency', 'paymentMethod', 'email', 'phone', 'createdAt', 'userId']) &&
-             data.keys().size() == 12;
+             data.userId is string && data.userId.size() <= 128 &&
+             data.keys().hasAll(['playerId', 'status', 'price', 'amount', 'packageId', 'currency', 'paymentMethod', 'email', 'phone', 'createdAt', 'userId']);
     }
 
     match /orders/{orderId} {
-      allow read: if isValidId(orderId); // Allow anyone to track by valid ID
+      allow read: if true; // Public access for tracking by unique ID
       allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
 
-      allow create: if isValidId(orderId) && (
-        (isSignedIn() && incoming().userId == request.auth.uid) || 
+      allow create: if (
+        (isSignedIn() && (incoming().userId == request.auth.uid || incoming().userId == 'guest')) || 
         (incoming().userId == 'guest')
       ) && isValidOrder(incoming());
 
-      allow update: if isValidId(orderId) && isAdmin();
-      allow delete: if isValidId(orderId) && isAdmin();
+      allow update: if (
+        isAdmin() || 
+        (isSignedIn() && resource.data.userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == existing().status)
+      ); // Users can't actually change anything, just here for safety. Actually status update is admin only.
+      allow delete: if isAdmin();
     }
 
     // ---------------------------------------------------------

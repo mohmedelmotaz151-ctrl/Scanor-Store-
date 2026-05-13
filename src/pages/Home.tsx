@@ -39,6 +39,7 @@ export const Home = () => {
   const [checkoutStep, setCheckoutStep] = useState<'details' | 'review'>('details');
   const [formData, setFormData] = useState({
     playerId: '',
+    playerName: '',
     email: '',
     phone: '',
     paymentMethod: 'al_rajhi' as 'al_rajhi' | 'bok' | 'fatora'
@@ -83,7 +84,7 @@ export const Home = () => {
         receiptBase64 = await fileToBase64(receipt);
       }
 
-      const orderData = {
+      const orderData: any = {
         packageId: selectedPackage.id,
         amount: selectedPackage.amount,
         bonus: selectedPackage.bonus,
@@ -94,6 +95,10 @@ export const Home = () => {
         createdAt: serverTimestamp(),
         userId: auth.currentUser?.uid || 'guest'
       };
+
+      if (receiptBase64) {
+        orderData.receiptImage = receiptBase64;
+      }
 
       const path = 'orders';
       let docRef;
@@ -117,7 +122,7 @@ export const Home = () => {
                 currency: orderSummary.currency,
                 orderId: docRef.id,
                 email: formData.email,
-                name: auth.currentUser?.displayName || 'Customer',
+                name: formData.playerName || auth.currentUser?.displayName || 'Customer',
                 phone: formData.phone
               })
             });
@@ -343,6 +348,18 @@ export const Home = () => {
                       />
                     </div>
 
+                    <div className="relative">
+                      <label className="block text-xs font-black uppercase tracking-[0.2em] text-neutral-500 mb-3 px-2">اسم اللاعب (الاسم في اللعبة)</label>
+                      <input 
+                        type="text" 
+                        required 
+                        placeholder="أدخل اسمك داخل اللعبة للتأكد" 
+                        className="w-full bg-neutral-950 border border-neutral-800 text-white px-6 py-5 rounded-[1.5rem] focus:ring-2 focus:ring-amber-500 outline-none transition-all font-bold"
+                        value={formData.playerName}
+                        onChange={(e) => setFormData({ ...formData, playerName: e.target.value })}
+                      />
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">البريد الإلكتروني</label>
@@ -498,6 +515,10 @@ export const Home = () => {
                         <span className="font-mono text-white">{formData.playerId}</span>
                       </div>
                       <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
+                        <span className="text-neutral-500 text-sm">اسم اللاعب</span>
+                        <span className="text-white font-bold">{formData.playerName}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
                         <span className="text-neutral-500 text-sm">وسيلة الدفع</span>
                         <span className="font-bold uppercase text-amber-500">{formData.paymentMethod}</span>
                       </div>
@@ -529,7 +550,7 @@ export const Home = () => {
                   <div className="flex flex-col gap-3">
                     <button 
                       onClick={handleOrder}
-                      disabled={isSubmitting || !receipt}
+                      disabled={isSubmitting || (formData.paymentMethod !== 'fatora' && !receipt)}
                       className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30px_rgba(245,158,11,0.2)] disabled:opacity-50"
                     >
                       {isSubmitting ? 'جاري الإرسال...' : 'تأكيد وإرسال الطلب'}

@@ -190,6 +190,7 @@ export const Admin = () => {
                         value={order.status}
                         onChange={(e) => updateOrderStatus(order.id, e.target.value)}
                       >
+                        <option value="pending_payment">بانتظار الدفع</option>
                         <option value="pending_verification">بانتظار التأكيد</option>
                         <option value="processing">جاري الشحن</option>
                         <option value="completed">مكتمل</option>
@@ -221,6 +222,7 @@ const StatCard = ({ title, value, icon }: { title: string, value: number, icon: 
 
 const StatusBadge = ({ status }: { status: string }) => {
   const configs: any = {
+    pending_payment: { bg: 'bg-purple-500/10', text: 'text-purple-500', border: 'border-purple-500/20', label: 'بانتظار الدفع الإلكتروني' },
     pending_verification: { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/20', label: 'بانتظار التأكيد' },
     processing: { bg: 'bg-blue-500/10', text: 'text-blue-500', border: 'border-blue-500/20', label: 'جاري الشحن' },
     completed: { bg: 'bg-emerald-500/10', text: 'text-emerald-500', border: 'border-emerald-500/20', label: 'مكتمل' },

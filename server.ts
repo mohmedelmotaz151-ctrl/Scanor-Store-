@@ -42,6 +42,7 @@ async function sendOrderNotification(order: any) {
     text: `
       تم استلام طلب جديد:
       ID اللاعب: ${order.playerId}
+      اسم اللاعب: ${order.playerName || 'غير مسجل'}
       الباقة: ${order.amount} + ${order.bonus} شدة
       المبلغ: ${order.price} ${order.currency}
       وسيلة الدفع: ${order.paymentMethod}
@@ -54,9 +55,10 @@ async function sendOrderNotification(order: any) {
         <h2 style="color: #f59e0b;">طلب جديد في Scanor Store</h2>
         <hr/>
         <p><strong>ID اللاعب:</strong> ${order.playerId}</p>
+        <p><strong>اسم اللاعب:</strong> ${order.playerName || 'غير مسجل'}</p>
         <p><strong>الباقة:</strong> ${order.amount} + ${order.bonus} شدة</p>
         <p><strong>المبلغ:</strong> ${order.price} ${order.currency}</p>
-        <p><strong>وسيلة الدفع:</strong> ${order.paymentMethod === "al_rajhi" ? "مصرف الراجحي" : "بنك الخرطوم"}</p>
+        <p><strong>وسيلة الدفع:</strong> ${order.paymentMethod === "al_rajhi" ? "مصرف الراجحي" : order.paymentMethod === "bok" ? "بنك الخرطوم" : "دفع إلكتروني (Fatora)"}</p>
         <p><strong>البريد:</strong> ${order.email}</p>
         <p><strong>الهاتف:</strong> ${order.phone}</p>
         <p><strong>ID الطلب في قاعدة البيانات:</strong> ${order.id}</p>
@@ -100,6 +102,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.set('trust proxy', true);
   app.use(express.json({ limit: '10mb' }));
 
   // --- API Routes ---
@@ -143,39 +146,83 @@ async function startServer() {
   // Fatora Payment Integration
   app.post("/api/payment/fatora", async (req, res) => {
     const { amount, currency, orderId, email, name, phone } = req.body;
-    const apiKey = process.env.FATORA_API_KEY || "fc_9e7d6c460cab0118ddde0852";
+    // Prefer environment variable, fallback to default provided
+    const apiKey = process.env.FATORA_API_KEY || "950b86e0-2490-416b-9b6f-78f37334b813";
+
+    // Detect protocol and host properly
+    const forwardedProto = req.get('x-forwarded-proto');
+    const forwardedHost = req.get('x-forwarded-host');
+    
+    // Detection of Base URL for callbacks
+    // In AI Studio / Cloud Run environments, we usually want https and the forwarded host
+    const protocol = forwardedProto || (req.get('host')?.includes('localhost') ? 'http' : 'https');
+    const host = forwardedHost || req.get('host');
+    const baseUrl = process.env.BASE_URL || `${protocol}://${host}`;
+
+    const fatoraBody = {
+      amount: parseFloat(amount),
+      currency: currency || "SAR",
+      order_id: String(orderId),
+      client_name: name || "Customer",
+      client_email: email || "customer@example.com",
+      client_mobile: phone || "0500000000",
+      language: "ar",
+      success_url: `${baseUrl}/track?id=${orderId}&payment=success`,
+      failure_url: `${baseUrl}/track?id=${orderId}&payment=failed`,
+      cancel_url: `${baseUrl}/track?id=${orderId}&payment=cancelled`,
+      fatora_note: `Order ${orderId} - ${name}`
+    };
+
+    console.log("Initiating Fatora payment to https://api.fatora.io/v1/payments/checkout");
+    console.log("Base URL for callbacks:", baseUrl);
 
     try {
       const response = await fetch("https://api.fatora.io/v1/payments/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "api_key": apiKey
+          "Accept": "application/json",
+          "Authorization": `Bearer ${apiKey}`, // Recommended for newer accounts
+          "api_key": apiKey // Keeping as fallback
         },
-        body: JSON.stringify({
-          amount: amount,
-          currency: currency,
-          order_id: orderId,
-          customer_name: name || "Customer",
-          customer_email: email,
-          customer_phone: phone,
-          success_url: `${req.protocol}://${req.get('host')}/track?id=${orderId}&payment=success`,
-          failure_url: `${req.protocol}://${req.get('host')}/track?id=${orderId}&payment=failed`,
-          cancel_url: `${req.protocol}://${req.get('host')}/track?id=${orderId}&payment=cancelled`,
-        }),
+        body: JSON.stringify(fatoraBody),
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      console.log(`Fatora API Response Status: ${response.status}`);
       
-      if (data.status === "success") {
-        res.json({ checkout_url: data.result.checkout_url });
-      } else {
-        console.error("Fatora Error Data:", data);
-        res.status(400).json({ error: data.message || "فشل في إنشاء عملية الدفع" });
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Fatora non-JSON response:", responseText);
+        let errorHint = "بوابة الدفع ردت باستجابة غير متوقعة.";
+        if (responseText.includes("<html") || responseText.includes("<!DOCTYPE")) {
+          errorHint = "بوابة الدفع (Fatora) معطلة حالياً أو المسار غير صحيح (404/500).";
+        }
+        return res.status(500).json({ 
+          error: errorHint,
+          status: response.status,
+          details: responseText.substring(0, 100) 
+        });
       }
-    } catch (err) {
+      
+      // Fatora returns checkout_url inside result object on success
+      if (data.status === "success" || data.status === true || data.status === 1 || data.result?.checkout_url || data.checkout_url) {
+        const checkoutUrl = data.result?.checkout_url || data.checkout_url;
+        if (checkoutUrl) {
+          console.log("Fatora success, redirecting to:", checkoutUrl);
+          res.json({ checkout_url: checkoutUrl });
+        } else {
+          res.status(400).json({ error: "تم إنشاء الدفع ولكن لم يتم استلام رابط التوجيه", details: data });
+        }
+      } else {
+        console.error("Fatora error response:", JSON.stringify(data, null, 2));
+        res.status(400).json({ error: data.message || data.error || "فشل في إنشاء عملية الدفع. تأكد من صحة المفتاح." });
+      }
+    } catch (err: any) {
       console.error("Fatora Exception:", err);
-      res.status(500).json({ error: "حدث خطأ أثناء الاتصال ببوابة الدفع" });
+      res.status(500).json({ error: "حدث خطأ أثناء الاتصال ببوابة الدفع: " + err.message });
     }
   });
 

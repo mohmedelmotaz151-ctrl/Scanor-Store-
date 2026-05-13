@@ -110,7 +110,8 @@ export const Login = () => {
         setMode('login');
       }
     } catch (err: any) {
-      setError(getErrorMessage(err.code));
+      const errorMsg = getErrorMessage(err.code);
+      setError(errorMsg || `فشل في المصادقة: ${err.message} (${err.code})`);
     } finally {
       setLoading(false);
     }
@@ -133,7 +134,8 @@ export const Login = () => {
         setSuccess('تم إرسال رمز التحقق إلى جوالك.');
       }
     } catch (err: any) {
-      setError(getErrorMessage(err.code));
+      const errorMsg = getErrorMessage(err.code);
+      setError(errorMsg || `فشل في تأكيد الجوال: ${err.message} (${err.code})`);
     } finally {
       setLoading(false);
     }
@@ -147,7 +149,17 @@ export const Login = () => {
       await syncUserToFirestore(firebaseUser);
       navigate('/');
     } catch (err: any) {
-      setError(getErrorMessage(err.code));
+      console.error('Social Login Error:', err);
+      // Detailed error message for social login failures
+      if (err.code === 'auth/popup-blocked') {
+        setError('تم حظر النافذة المنبثقة. يرجى السماح بالنوافذ المنبثقة لهذا الموقع للمتابعة.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        const domain = window.location.hostname;
+        setError(`هذا النطاق (${domain}) غير مصرح به في إعدادات Firebase. يرجى إضافة هذا النطاق إلى قائمة "Authorized domains" في إعدادات Authentication في Firebase Console.`);
+      } else {
+        const errorMsg = getErrorMessage(err.code);
+        setError(errorMsg || `فشل تسجيل الدخول: ${err.message} (${err.code})`);
+      }
     } finally {
       setLoading(false);
     }
@@ -163,8 +175,10 @@ export const Login = () => {
       case 'auth/invalid-phone-number': return 'رقم هاتف غير صالح.';
       case 'auth/too-many-requests': return 'محاولات كثيرة جداً. يرجى المحاولة لاحقاً.';
       case 'auth/code-expired': return 'انتهت صلاحية الرمز.';
-      case 'auth/popup-closed-by-user': return 'تم إغلاق نافذة تسجيل الدخول.';
-      default: return 'حدث خطأ ما. يرجى المحاولة لاحقاً.';
+      case 'auth/popup-closed-by-user': return 'تم إغلاق نافذة تسجيل الدخول قبل إتمام العملية.';
+      case 'auth/cancelled-closure-external-event': return 'تم إلغاء عملية تسجيل الدخول.';
+      case 'auth/operation-not-allowed': return 'طريقة تسجيل الدخول هذه غير مفعلة في إعدادات Firebase.';
+      default: return null;
     }
   };
 
@@ -342,35 +356,37 @@ export const Login = () => {
             </form>
           )}
 
-          <div className="mt-8 pt-8 border-t border-neutral-800/50 space-y-6 relative z-10 text-center">
-            <p className="text-neutral-500 text-xs text-center">أو عبر المنصات الاجتماعية</p>
-            <div className="flex gap-4">
-              <button 
-                onClick={() => handleSocialLogin('google')}
-                className="flex-1 bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-center hover:bg-white/10 transition-colors"
-                title="Google Login"
-              >
-                <Chrome className="w-6 h-6" />
-              </button>
-              <button 
-                onClick={() => handleSocialLogin('apple')}
-                className="flex-1 bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-center hover:bg-white/10 transition-colors"
-                title="Apple Login"
-              >
-                <Apple className="w-6 h-6" />
-              </button>
-            </div>
+          <div className="mt-8 pt-8 border-t border-neutral-800/50 space-y-3 relative z-10 text-center">
+            <p className="text-neutral-500 text-xs text-center mb-2">أو عبر المنصات الاجتماعية</p>
+            
+            <button 
+              onClick={() => handleSocialLogin('google')}
+              className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-center gap-3 hover:bg-white/10 transition-colors text-sm font-bold"
+            >
+              <Chrome className="w-5 h-5" />
+              <span>متابعة باستخدام جوجل</span>
+            </button>
 
             <button 
-              onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setSuccess(null); setError(null); }}
-              className="text-sm font-bold text-neutral-400 hover:text-white transition-colors"
+              onClick={() => handleSocialLogin('apple')}
+              className="w-full bg-white text-black p-4 rounded-2xl flex items-center justify-center gap-3 hover:bg-neutral-200 transition-colors text-sm font-bold"
             >
-              {mode === 'login' ? (
-                <>ليس لديك حساب؟ <span className="text-amber-500">إنشاء حساب جديد</span></>
-              ) : (
-                <>لديك حساب بالفعل؟ <span className="text-amber-500">تسجيل الدخول</span></>
-              )}
+              <Apple className="w-5 h-5" />
+              <span>متابعة باستخدام Apple</span>
             </button>
+
+            <div className="pt-4">
+              <button 
+                onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setSuccess(null); setError(null); }}
+                className="text-sm font-bold text-neutral-400 hover:text-white transition-colors"
+              >
+                {mode === 'login' ? (
+                  <>ليس لديك حساب؟ <span className="text-amber-500">إنشاء حساب جديد</span></>
+                ) : (
+                  <>لديك حساب بالفعل؟ <span className="text-amber-500">تسجيل الدخول</span></>
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="mt-8 pt-8 border-t border-neutral-800/50 text-center relative z-10 text-neutral-500 text-xs">
