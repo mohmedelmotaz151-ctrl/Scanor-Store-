@@ -42,13 +42,13 @@ export const Home = () => {
     playerName: '',
     email: '',
     phone: '',
-    paymentMethod: 'al_rajhi' as 'al_rajhi' | 'bok' | 'fatora'
+    paymentMethod: 'stripe' as 'al_rajhi' | 'bok' | 'fatora' | 'stripe'
   });
 
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
-      paymentMethod: currency === 'SDG' ? 'bok' : 'fatora'
+      paymentMethod: currency === 'SDG' ? 'bok' : 'stripe'
     }));
   }, [currency]);
 
@@ -56,6 +56,8 @@ export const Home = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<any>(null);
   const navigate = useNavigate();
+
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
 
   const handleOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +71,7 @@ export const Home = () => {
     }
 
     setIsSubmitting(true);
+    setRedirectUrl(null);
     try {
       let receiptBase64 = '';
       if (receipt) {
@@ -91,7 +94,7 @@ export const Home = () => {
         price: currency === 'SDG' ? selectedPackage.price_sdg : selectedPackage.price_sar,
         currency,
         ...formData,
-        status: formData.paymentMethod === 'fatora' ? 'pending_payment' : 'pending_verification',
+        status: (formData.paymentMethod === 'fatora' || formData.paymentMethod === 'stripe') ? 'pending_payment' : 'pending_verification',
         createdAt: serverTimestamp(),
         userId: auth.currentUser?.uid || 'guest'
       };
@@ -111,10 +114,11 @@ export const Home = () => {
       if (docRef) {
         const orderSummary = { id: docRef.id, ...orderData };
 
-        if (formData.paymentMethod === 'fatora') {
+        if (formData.paymentMethod === 'fatora' || formData.paymentMethod === 'stripe') {
           // Automatic Payment Flow
           try {
-            const payRes = await fetch('/api/payment/fatora', {
+            const endpoint = formData.paymentMethod === 'stripe' ? '/api/payment/stripe' : '/api/payment/fatora';
+            const payRes = await fetch(endpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -126,16 +130,45 @@ export const Home = () => {
                 phone: formData.phone
               })
             });
-            const payData = await payRes.json();
+            const responseText = await payRes.text();
+            let payData;
+            try {
+              payData = JSON.parse(responseText);
+            } catch (e) {
+              console.error('Non-JSON response from server:', responseText);
+              throw new Error('الخادم رد باستجابة غير صالحة');
+            }
+            
+            console.log('Payment API Response:', payData);
             if (payData.checkout_url) {
+              setRedirectUrl(payData.checkout_url);
+              // Try automatic redirect
               window.location.href = payData.checkout_url;
-              return; // Halt execution as we are redirecting
+              
+              // If it hasn't redirected after 3 seconds, show a message
+              setTimeout(() => {
+                setIsSubmitting(false);
+              }, 3000);
+              return; 
             } else {
-              throw new Error(payData.error || 'Failed to create payment');
+              const errorMsg = payData.error || 'Failed to create payment';
+              const details = payData.details ? JSON.stringify(payData.details) : '';
+              throw new Error(`${errorMsg} ${details}`);
             }
           } catch (payErr: any) {
             console.error('Payment linking error:', payErr);
-            alert('فشل في بدء عملية الدفع الإلكتروني: ' + payErr.message);
+            let errorMessage = payErr.message;
+            try {
+              if (payErr.message && (payErr.message.includes('{') || payErr.message.includes('}'))) {
+                const start = payErr.message.indexOf('{');
+                const end = payErr.message.lastIndexOf('}') + 1;
+                const jsonStr = payErr.message.substring(start, end);
+                const parsed = JSON.parse(jsonStr);
+                errorMessage = parsed.error || parsed.message || errorMessage;
+              }
+            } catch { /* stay with original */ }
+            
+            alert('فشل في بدء عملية الدفع الإلكتروني: ' + errorMessage);
             setIsSubmitting(false);
             return;
           }
@@ -390,20 +423,39 @@ export const Home = () => {
                       <label className="block text-xs font-bold uppercase tracking-widest text-neutral-500 mb-4 px-2">طريقة الدفع</label>
                       <div className="grid grid-cols-1 gap-3">
                         {currency === 'SAR' && (
-                          <button
-                            type="button"
-                            onClick={() => setFormData({ ...formData, paymentMethod: 'fatora' })}
-                            className={`flex items-center justify-between p-5 rounded-3xl border ${formData.paymentMethod === 'fatora' ? 'bg-amber-500 text-black border-amber-500' : 'bg-neutral-950 border-neutral-800 text-white'} transition-all`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <ShieldCheck className="w-6 h-6" />
-                              <div className="text-right">
-                                <p className="font-bold">دفع إلكتروني آمن</p>
-                                <p className={`text-[10px] ${formData.paymentMethod === 'fatora' ? 'text-black/60' : 'text-neutral-500'}`}>مدى، أبل باي، فيزا، ماستر كارد</p>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, paymentMethod: 'stripe' })}
+                              className={`flex items-center justify-between p-5 rounded-3xl border ${formData.paymentMethod === 'stripe' ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-neutral-950 border-neutral-800 text-white'} transition-all`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <section className="bg-white/10 p-1 rounded-lg">
+                                  <ShieldCheck className="w-6 h-6 text-indigo-400" />
+                                </section>
+                                <div className="text-right">
+                                  <p className="font-bold">دفع إلكتروني آمن (Stripe)</p>
+                                  <p className={`text-[10px] ${formData.paymentMethod === 'stripe' ? 'text-white/70' : 'text-neutral-500'}`}>مدى، فيزا، ماستر كارد، أبل باي</p>
+                                </div>
                               </div>
-                            </div>
-                            <CheckCircle2 className={`w-6 h-6 ${formData.paymentMethod === 'fatora' ? 'opacity-100' : 'opacity-0'}`} />
-                          </button>
+                              <CheckCircle2 className={`w-6 h-6 ${formData.paymentMethod === 'stripe' ? 'opacity-100' : 'opacity-0'}`} />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setFormData({ ...formData, paymentMethod: 'fatora' })}
+                              className={`flex items-center justify-between p-5 rounded-3xl border ${formData.paymentMethod === 'fatora' ? 'bg-amber-500 text-black border-amber-500' : 'bg-neutral-950 border-neutral-800 text-white'} transition-all opacity-60 hover:opacity-100`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <ShieldCheck className="w-6 h-6" />
+                                <div className="text-right">
+                                  <p className="font-bold">بوابة فواتير (Fatora)</p>
+                                  <p className={`text-[10px] ${formData.paymentMethod === 'fatora' ? 'text-black/60' : 'text-neutral-500'}`}>بوابة دفع بديلة</p>
+                                </div>
+                              </div>
+                              <CheckCircle2 className={`w-6 h-6 ${formData.paymentMethod === 'fatora' ? 'opacity-100' : 'opacity-0'}`} />
+                            </button>
+                          </>
                         )}
                         <button
                           type="button"
@@ -423,7 +475,7 @@ export const Home = () => {
                     </div>
 
                     <AnimatePresence mode="wait">
-                      {formData.paymentMethod !== 'fatora' ? (
+                      {formData.paymentMethod !== 'fatora' && formData.paymentMethod !== 'stripe' ? (
                         <motion.div 
                           key="manual-payment"
                           initial={{ opacity: 0, height: 0 }}
@@ -495,11 +547,21 @@ export const Home = () => {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 10 }}
-                          className="mt-4 p-6 bg-amber-500/5 border border-amber-500/20 rounded-3xl text-center"
+                          className={`mt-4 p-6 border rounded-3xl text-center ${formData.paymentMethod === 'stripe' ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-amber-500/5 border-amber-500/20'}`}
                         >
-                          <ShieldCheck className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                          <h4 className="text-amber-500 font-bold mb-2">دفع إلكتروني فوري</h4>
-                          <p className="text-sm text-neutral-400">سيتم توجيهك إلى صفحة الدفع الآمنة فور إتمام الطلب ليتم الشحن تلقائياً.</p>
+                          {formData.paymentMethod === 'stripe' ? (
+                            <>
+                              <CheckCircle2 className="w-12 h-12 text-indigo-500 mx-auto mb-4" />
+                              <h4 className="text-indigo-500 font-bold mb-2">Stripe Checkout</h4>
+                              <p className="text-sm text-neutral-400">سيتم توجيهك إلى Stripe لإتمام الدفع ببطاقتك الائتمانية بشكل آمن.</p>
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                              <h4 className="text-amber-500 font-bold mb-2">دفع إلكتروني فوري</h4>
+                              <p className="text-sm text-neutral-400">سيتم توجيهك إلى صفحة الدفع الآمنة فور إتمام الطلب ليتم الشحن تلقائياً.</p>
+                            </>
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -521,7 +583,11 @@ export const Home = () => {
                       </div>
                       <div className="flex justify-between items-center border-b border-neutral-800 pb-4">
                         <span className="text-neutral-500 text-sm">وسيلة الدفع</span>
-                        <span className="font-bold uppercase text-amber-500">{formData.paymentMethod}</span>
+                        <span className={`font-bold uppercase ${formData.paymentMethod === 'stripe' ? 'text-indigo-400' : 'text-amber-500'}`}>
+                          {formData.paymentMethod === 'stripe' ? 'Stripe Checkout' : 
+                           formData.paymentMethod === 'fatora' ? 'دفع إلكتروني' : 
+                           formData.paymentMethod === 'al_rajhi' ? 'الراجحي' : 'بنك الخرطوم'}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-neutral-400 font-bold">الإجمالي</span>
@@ -536,28 +602,42 @@ export const Home = () => {
 
               <div className="p-8 border-t border-neutral-800 bg-neutral-900 sticky bottom-0 z-20" dir="rtl">
                 {checkoutStep === 'details' ? (
-                  <button 
-                    form="checkout-form"
-                    type="submit"
-                    disabled={isSubmitting || formData.playerId.length < 5 || (formData.paymentMethod !== 'fatora' && !receipt)}
-                    className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30px_rgba(245,158,11,0.2)] disabled:opacity-50 disabled:grayscale"
-                  >
-                    {formData.playerId.length >= 5 ? 
-                      (formData.paymentMethod === 'fatora' ? 'المتابعة للدفع الآمن' : 
-                        (receipt ? 'تم التحويل ✓ إرسال الطلب' : 'ارفق الإيصال للمتابعة')) 
-                      : 'أدخل معرف صحيح للمتابعة'}
-                  </button>
+                    <button 
+                      form="checkout-form"
+                      type="submit"
+                      disabled={isSubmitting || formData.playerId.length < 5 || (formData.paymentMethod !== 'fatora' && formData.paymentMethod !== 'stripe' && !receipt)}
+                      className={`w-full py-5 rounded-3xl font-black text-lg transition-all shadow-xl disabled:opacity-50 disabled:grayscale ${
+                        formData.paymentMethod === 'stripe' ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-amber-500 text-black hover:bg-amber-400'
+                      }`}
+                    >
+                      {formData.playerId.length >= 5 ? 
+                        (formData.paymentMethod === 'fatora' || formData.paymentMethod === 'stripe' ? 'المتابعة للدفع الآمن' : 
+                          (receipt ? 'تم التحويل ✓ إرسال الطلب' : 'ارفق الإيصال للمتابعة')) 
+                        : 'أدخل معرف صحيح للمتابعة'}
+                    </button>
                 ) : (
                   <div className="flex flex-col gap-3">
+                    {redirectUrl ? (
+                      <a 
+                        href={redirectUrl}
+                        className="w-full bg-emerald-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-emerald-400 transition-all shadow-[0_10px_30px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2"
+                      >
+                        <Zap className="w-5 h-5 fill-current" />
+                        اضغط هنا للدفع الآن
+                      </a>
+                    ) : (
+                      <button 
+                        onClick={handleOrder}
+                        disabled={isSubmitting || (formData.paymentMethod !== 'fatora' && formData.paymentMethod !== 'stripe' && !receipt)}
+                        className={`w-full py-5 rounded-3xl font-black text-lg transition-all shadow-xl disabled:opacity-50 ${
+                          formData.paymentMethod === 'stripe' ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-amber-500 text-black hover:bg-amber-400'
+                        }`}
+                      >
+                        {isSubmitting ? 'جاري الإرسال...' : 'تأكيد وإرسال الطلب'}
+                      </button>
+                    )}
                     <button 
-                      onClick={handleOrder}
-                      disabled={isSubmitting || (formData.paymentMethod !== 'fatora' && !receipt)}
-                      className="w-full bg-amber-500 text-black py-5 rounded-3xl font-black text-lg hover:bg-amber-400 transition-all shadow-[0_10px_30px_rgba(245,158,11,0.2)] disabled:opacity-50"
-                    >
-                      {isSubmitting ? 'جاري الإرسال...' : 'تأكيد وإرسال الطلب'}
-                    </button>
-                    <button 
-                      onClick={() => setCheckoutStep('details')}
+                      onClick={() => { setCheckoutStep('details'); setRedirectUrl(null); }}
                       disabled={isSubmitting}
                       className="w-full py-4 text-neutral-400 hover:text-white transition-colors text-sm font-bold"
                     >
